@@ -2,7 +2,7 @@ import type { Equipment, Category } from "../types"
 
 export const EQUIPMENT_INIT: Equipment[] = [
   {
-    id: "1",
+    id: 1,
     name: "Cámara Sony A7 III",
     category: "cameras",
     available: true,
@@ -27,7 +27,7 @@ export const EQUIPMENT_INIT: Equipment[] = [
     videoUrl: "https://www.youtube.com/watch?v=JLCGg0nArKQ",
   },
   {
-    id: "2",
+    id: 2,
     name: "Canon EOS R6",
     category: "cameras",
     available: false,
@@ -49,7 +49,7 @@ export const EQUIPMENT_INIT: Equipment[] = [
     ],
   },
   {
-    id: "3",
+    id: 3,
     name: "Panel LED Godox SL-150W",
     category: "lighting",
     available: true,
@@ -72,7 +72,7 @@ export const EQUIPMENT_INIT: Equipment[] = [
     videoUrl: "https://www.youtube.com/watch?v=QDPF0kMgLcM",
   },
   {
-    id: "4",
+    id: 4,
     name: "Micrófono Rode NTG5",
     category: "audio",
     available: true,
@@ -94,7 +94,7 @@ export const EQUIPMENT_INIT: Equipment[] = [
     ],
   },
   {
-    id: "5",
+    id: 5,
     name: 'MacBook Pro 14" M3',
     category: "computers",
     available: true,
@@ -119,7 +119,7 @@ export const EQUIPMENT_INIT: Equipment[] = [
     videoUrl: "https://www.youtube.com/watch?v=2fGEQdPKJfw",
   },
   {
-    id: "6",
+    id: 6,
     name: "Softbox Neewer 90×120cm",
     category: "lighting",
     available: false,
@@ -140,7 +140,7 @@ export const EQUIPMENT_INIT: Equipment[] = [
     ],
   },
   {
-    id: "7",
+    id: 7,
     name: "Grabadora Zoom H6",
     category: "audio",
     available: true,
@@ -161,7 +161,7 @@ export const EQUIPMENT_INIT: Equipment[] = [
     ],
   },
   {
-    id: "8",
+    id: 8,
     name: 'iPad Pro 12.9" M2',
     category: "computers",
     available: true,
