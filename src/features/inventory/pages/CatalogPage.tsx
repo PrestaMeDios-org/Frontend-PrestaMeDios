@@ -4,7 +4,7 @@ import { StatusBadge } from "../../../components/ui/Badge"
 import { EquipmentCard } from "../components/EquipmentCard"
 import { CatalogFilters } from "../components/CatalogFilters"
 import { EQUIPMENT_INIT, CATEGORY_INIT } from "../services/mockInventory"
-import type { Equipment } from "../types"
+import type { Equipment, Sede } from "../types"
 import type { Role } from "../../../types"
 
 // Página del catálogo: buscador + filtros + grilla/lista de equipos.
@@ -17,11 +17,11 @@ export function CatalogPage({
   onDelete,
 }: {
   role?: Role
-  userSede?: string
+  userSede?: Sede
   onSelect?: (e: Equipment) => void
   onAddToCart?: (e: Equipment) => void
   onEdit?: (e: Equipment) => void
-  onDelete?: (id: string) => void
+  onDelete?: (id: number) => void
 }) {
   const C = useC()
   const [filter, setFilter] = useState("all")

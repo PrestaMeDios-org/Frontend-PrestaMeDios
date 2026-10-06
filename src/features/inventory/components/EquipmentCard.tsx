@@ -18,7 +18,7 @@ export function EquipmentCard({
   onSelect?: (e: Equipment) => void
   onAddToCart?: (e: Equipment) => void
   onEdit?: (e: Equipment) => void
-  onDelete?: (id: string) => void
+  onDelete?: (id: number) => void
 }) {
   const C = useC()
   const canBook = (e: Equipment) => e.available && !e.maintenance
