@@ -3,6 +3,7 @@ import { C_LIGHT, C_DARK, ThemeCtx } from "./theme"
 import type { Role, Screen } from "./types"
 import { MainLayout } from "./components/layout/MainLayout"
 import { CatalogPage } from "./features/inventory/pages/CatalogPage"
+import { SpacesPage } from "./features/spaces/pages/SpacesPage"
 
 const TITLES: Record<Screen, { title: string; subtitle?: string }> = {
   catalog: {
@@ -71,6 +72,7 @@ export default function App() {
       >
         {/* Módulo de Inventario — plantilla activa */}
         {screen === "catalog" && <CatalogPage role={role} />}
+        {screen === "spaces" && <SpacesPage role={role} />}
 
         {/*
           Módulos en desarrollo por el equipo:
@@ -80,7 +82,7 @@ export default function App() {
           Cada uno se renderiza aquí según `screen`, siguiendo
           la misma estructura que CatalogPage.
         */}
-        {screen !== "catalog" && (
+        {screen !== "catalog" && screen !== "spaces" && (
           <div
             style={{
               flex: 1,
