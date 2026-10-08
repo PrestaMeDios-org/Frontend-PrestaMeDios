@@ -1,17 +1,59 @@
 import type { Bloqueo, Espacio, Reserva } from "../types"
 
-const BASE_URL = "http://localhost:8000/api/v1/spaces"
+const BASE_URL = (
+  import.meta.env.VITE_SPACES_API_URL ??
+  `${import.meta.env.VITE_API_URL ?? "http://localhost:8000"}/api/v1/spaces`
+).replace(/\/$/, "")
+
+async function readErrorMessage(res: Response): Promise<string> {
+  const text = await res.text()
+  if (!text) return `Error ${res.status}`
+
+  try {
+    const parsed = JSON.parse(text)
+    const message =
+      parsed?.detail ??
+      parsed?.message ??
+      parsed?.error ??
+      parsed?.detail?.message ??
+      parsed?.errors?.[0]?.message
+
+    if (typeof message === "string" && message.trim()) return message
+  } catch {
+    // Fall through to the raw response body if the server is not returning JSON.
+  }
+
+  return text
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  })
+  let res: Response
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      headers: { "Content-Type": "application/json" },
+      ...init,
+    })
+  } catch {
+    throw new Error(
+      "No se pudo conectar con la API de reservas. Verificá que el backend esté levantado y que VITE_SPACES_API_URL apunte al contrato correcto.",
+    )
+  }
+
   if (!res.ok) {
-    const detail = await res.text()
+    const detail = await readErrorMessage(res)
+    if (res.status === 409) {
+      throw new Error(`Conflicto de disponibilidad: ${detail}`)
+    }
     throw new Error(detail || `Error ${res.status}`)
   }
-  return res.json() as Promise<T>
+
+  const raw = await res.text()
+  if (!raw) return undefined as T
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return raw as unknown as T
+  }
 }
 
 type EspacioApi = { id_espacio: number; nombre: string; tipo?: string | null; id_sede: number }

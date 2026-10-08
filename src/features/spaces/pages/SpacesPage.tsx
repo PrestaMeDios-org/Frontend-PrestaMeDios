@@ -36,8 +36,10 @@ const USER_BY_ROLE: Record<Role, number> = {
 
 export function SpacesPage({ role = "student" }: { role?: Role }) {
   const C = useC()
-  const USER_ID = USER_BY_ROLE[role]
+  const [userIdOverride, setUserIdOverride] = useState<number | null>(null)
+  const currentUserId = userIdOverride ?? USER_BY_ROLE[role]
   const [espacios, setEspacios] = useState<Espacio[]>([])
+  const [selectedSede, setSelectedSede] = useState<number | null>(null)
   const [idEspacio, setIdEspacio] = useState<number | null>(null)
   const [fecha, setFecha] = useState<string | null>(null)
   const [mes, setMes] = useState(() => {
@@ -58,9 +60,16 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     getEspacios()
       .then((data) => {
         setEspacios(data)
-        if (data.length > 0) setIdEspacio(data[0].id)
+        if (data.length === 0) {
+          setSelectedSede(null)
+          setIdEspacio(null)
+          return
+        }
+        const firstSede = data[0].idSede
+        setSelectedSede(firstSede)
+        setIdEspacio(data.find((e) => e.idSede === firstSede)?.id ?? data[0].id)
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(e instanceof Error ? e.message : "No se pudo cargar la lista de espacios"))
   }, [])
 
   useEffect(() => {
@@ -92,7 +101,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   }, [fecha, idEspacio])
 
   const cargarMisReservas = () => {
-    listReservas({ id_usuario: USER_ID })
+    listReservas({ id_usuario: currentUserId })
       .then((list) =>
         setMisReservas(
           list.filter((r) => r.estado === "Pendiente" || r.estado === "Aprobada" || r.estado === "En_Uso"),
@@ -102,13 +111,13 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   }
 
   const cargarPendientesAdmin = () => {
-    listReservas({ estado: "Pendiente" }).then(setPendientesAdmin).catch((e) => setError(e.message))
+    listReservas({ estado: "Pendiente" }).then(setPendientesAdmin).catch((e) => setError(e instanceof Error ? e.message : "No se pudo cargar las solicitudes pendientes"))
   }
 
   useEffect(() => {
     cargarMisReservas()
     if (esAdmin) cargarPendientesAdmin()
-  }, [esAdmin, USER_ID, idEspacio, fecha, reservas.length])
+  }, [esAdmin, currentUserId, idEspacio, fecha, reservas.length])
 
   const refrescarMes = () => {
     const espacio = espacios.find((e) => e.id === idEspacio)
@@ -130,7 +139,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     setError(null)
     try {
       const nueva = await createReserva({
-        id_usuario: USER_ID,
+        id_usuario: currentUserId,
         id_espacio: idEspacio,
         fecha_reserva: fecha,
         hora_inicio: `${slot}:00`,
@@ -154,6 +163,9 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     }
   }
 
+  const sedes = Array.from(new Set(espacios.map((e) => e.idSede))).sort((a, b) => a - b)
+  const espacioActual = espacios.find((e) => e.id === idEspacio)
+  const espaciosPorSede = espacios.filter((e) => e.idSede === (selectedSede ?? espacioActual?.idSede ?? -1))
   const delEspacio = reservas.filter((r) => r.idEspacio === idEspacio)
   const delEspacioBloqueos = bloqueos.filter((b) => b.idEspacio === idEspacio)
 
@@ -178,7 +190,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     pendientes.some(
       (p) =>
         p.estado === "Pendiente" &&
-        p.idUsuario === USER_ID &&
+        p.idUsuario === currentUserId &&
         p.idEspacio === idEspacio &&
         p.fecha === fecha &&
         p.horaInicio <= slot &&
@@ -232,31 +244,119 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
 
   return (
     <div style={{ padding: "24px 28px", flex: 1, overflowY: "auto" }}>
-      <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
-        {espacios.map((e) => (
-          <button
-            key={e.id}
-            onClick={() => setIdEspacio(e.id)}
+      <div style={{ display: "grid", gap: 14, marginBottom: 18 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <span
             style={{
-              padding: "8px 14px",
-              borderRadius: 10,
-              border: `1px solid ${e.id === idEspacio ? C.crimson : C.border}`,
-              background: e.id === idEspacio ? C.crimsonLight : C.card,
+              fontFamily: "'Outfit',sans-serif",
+              fontWeight: 700,
               color: C.text,
-              cursor: "pointer",
-              fontFamily: "'Inter',sans-serif",
-              fontSize: 13,
+              alignSelf: "center",
             }}
           >
-            {e.nombre}
-          </button>
-        ))}
+            Sede
+          </span>
+          {sedes.length === 0 && <span style={{ color: C.textFaint }}>Sin sedes disponibles.</span>}
+          {sedes.map((sedeId) => (
+            <button
+              key={sedeId}
+              onClick={() => {
+                setSelectedSede(sedeId)
+                const nextSpace = espacios.find((e) => e.idSede === sedeId)
+                if (nextSpace) setIdEspacio(nextSpace.id)
+              }}
+              style={{
+                padding: "8px 14px",
+                borderRadius: 10,
+                border: `1px solid ${selectedSede === sedeId ? C.crimson : C.border}`,
+                background: selectedSede === sedeId ? C.crimsonLight : C.card,
+                color: C.text,
+                cursor: "pointer",
+                fontFamily: "'Inter',sans-serif",
+                fontSize: 13,
+              }}
+            >
+              Sede {sedeId}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <span
+            style={{
+              fontFamily: "'Outfit',sans-serif",
+              fontWeight: 700,
+              color: C.text,
+              alignSelf: "center",
+            }}
+          >
+            Espacio
+          </span>
+          {espaciosPorSede.length === 0 && <span style={{ color: C.textFaint }}>Sin espacios para esta sede.</span>}
+          {espaciosPorSede.map((e) => (
+            <button
+              key={e.id}
+              onClick={() => setIdEspacio(e.id)}
+              style={{
+                padding: "8px 14px",
+                borderRadius: 10,
+                border: `1px solid ${e.id === idEspacio ? C.crimson : C.border}`,
+                background: e.id === idEspacio ? C.crimsonLight : C.card,
+                color: C.text,
+                cursor: "pointer",
+                fontFamily: "'Inter',sans-serif",
+                fontSize: 13,
+              }}
+            >
+              {e.nombre}
+            </button>
+          ))}
+        </div>
       </div>
       {error && (
         <div style={{ color: C.crimson, marginBottom: 12, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
           {error}
         </div>
       )}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 18,
+          padding: "10px 12px",
+          borderRadius: 12,
+          border: `1px solid ${C.border}`,
+          background: C.crimsonLight,
+          color: C.text,
+          fontFamily: "'Inter',sans-serif",
+          fontSize: 12.5,
+        }}
+      >
+        <span style={{ fontWeight: 700 }}>id_usuario para la solicitud</span>
+        <input
+          type="number"
+          min={1}
+          value={userIdOverride ?? currentUserId}
+          onChange={(e) => {
+            const next = e.target.value
+            setUserIdOverride(next === "" ? null : Number(next))
+          }}
+          style={{
+            width: 110,
+            padding: "6px 8px",
+            borderRadius: 8,
+            border: `1px solid ${C.border}`,
+            background: C.card,
+            color: C.text,
+            fontFamily: "'Inter',sans-serif",
+            fontSize: 12.5,
+          }}
+        />
+        <span style={{ color: C.textMuted }}>
+          El contrato actual del backend usa este valor para filtrar reservas; no representa autenticación real.
+        </span>
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 18 }}>
         <CalendarGrid
           reservas={delEspacio}
