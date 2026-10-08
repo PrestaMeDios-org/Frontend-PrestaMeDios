@@ -8,12 +8,14 @@ export function Sidebar({
   onNavigate,
   collapsed,
   onToggle,
+  user,
 }: {
   screen: Screen
   role: Role
   onNavigate: (s: Screen) => void
   collapsed: boolean
   onToggle: () => void
+  user: { initials: string; name: string; sub: string }
 }) {
   const C = useC()
   const common = [
@@ -328,8 +330,21 @@ export function Sidebar({
           </svg>
         ),
       },
+      {
+        key: "parameters",
+        label: "Parámetros",
+        icon: (
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M2 4H9M13 4H14M2 12H4M8 12H14M11 2V6M6 10V14"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        ),
+      },
     ],
-    icse: [],
   }
   const fa = (k: string) => roleItems.admin.find((i: any) => i.key === k)!
   const groupedItems: Record<Role, { group: string; items: any[] }[]> = {
@@ -354,28 +369,12 @@ export function Sidebar({
       },
       {
         group: "ADMINISTRACIÓN",
-        items: [fa("admin-stock"), fa("users"), fa("notes")],
+        items: [fa("admin-stock"), fa("users"), fa("parameters"), fa("notes")],
       },
     ],
-    icse: [{ group: "ADMINISTRACIÓN", items: [fa("users"), fa("notes")] }],
   }
   const groups = groupedItems[role]
-  const userInfo: Record<Role, { initials: string; name: string; sub: string }> =
-    {
-      student: {
-        initials: "JP",
-        name: "Juan Pérez",
-        sub: "Estudiante · 3er año",
-      },
-      teacher: {
-        initials: "MV",
-        name: "Marcela Vega",
-        sub: "Docente · Video II",
-      },
-      admin: { initials: "ND", name: "No Docente", sub: "Admin · Pañol ICSE" },
-      icse: { initials: "AI", name: "Admin ICSE", sub: "Coordinación ICSE" },
-    }
-  const ui = userInfo[role]
+  const ui = user
   return (
     <aside
       style={{

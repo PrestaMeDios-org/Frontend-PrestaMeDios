@@ -65,7 +65,8 @@ Vite expone al cliente sólo las variables con prefijo `VITE_`. Se definen en `.
 | `npm run build` | Build de producción en `dist/` |
 | `npm run preview` | Sirve el build de producción localmente |
 | `npm run format` | Formatea el código con `oxfmt` |
-| `npx tsc --noEmit` | Chequeo de tipos (TypeScript strict) |
+| `npm run typecheck` | Chequeo de tipos (TypeScript strict) |
+| `npm test` | Tests unitarios (Vitest) |
 
 ---
 
@@ -79,14 +80,17 @@ src/
 ├── main.tsx                    # punto de entrada
 ├── theme.ts                    # paletas claro/oscuro y ThemeCtx
 ├── types.ts                    # tipos compartidos de la app (roles de UI, pantallas)
+├── lib/api.ts                  # cliente HTTP compartido: token, errores, sesión expirada
 ├── components/
 │   ├── layout/                 # MainLayout, Navbar, Sidebar
-│   └── ui/                     # Button, Input, Badge, iconos
+│   └── ui/                     # Button, Input, Badge, Form (campos, Card, Alert), iconos
 └── features/
+    ├── auth/                   # sesión, login, registro, cambio de contraseña (USR-01, USR-05)
+    ├── users/                  # mi perfil y gestión de usuarios (USR-03, USR-04)
+    ├── config/                 # panel de parámetros globales (GLO-03)
     ├── inventory/              # catálogo de equipamiento (PRE-01, PRE-02)
     ├── spaces/                 # calendario y reservas de espacios (RES-01…RES-05)
-    ├── loans/                  # préstamos (pendiente)
-    └── users/                  # identidad y usuarios (pendiente)
+    └── loans/                  # préstamos (pendiente)
         ├── components/
         ├── pages/
         ├── services/           # cliente HTTP del dominio + mappers
@@ -95,9 +99,11 @@ src/
 
 | Feature | Estado |
 | --- | --- |
-| `inventory` | Catálogo con filtros (datos de ejemplo; cliente de API disponible) |
-| `spaces` | Calendario interactivo conectado a la API de reservas |
-| `users` | Pendiente: login, registro, perfil y gestión de usuarios |
+| `auth` | Login, registro, sesión persistente en la pestaña y cambio obligatorio de contraseña |
+| `users` | Mi perfil; bandeja de aprobación, directorio, alta y edición de cuentas |
+| `config` | Panel de parámetros con control de versión e historial |
+| `inventory` | Catálogo con filtros (datos de ejemplo; cliente de API autenticado disponible) |
+| `spaces` | Calendario conectado a la API: reservas propias, aprobación y bloqueos |
 | `loans` | Pendiente |
 
 ---
@@ -106,7 +112,9 @@ src/
 
 - **DTOs espejo:** los tipos de `features/<dominio>/types` reflejan 1:1 los esquemas Pydantic del backend, en `snake_case`.
 - **Mappers:** `services/mappers.ts` convierte DTOs en modelos de vista (`camelCase`) que consumen los componentes.
-- **Cliente HTTP:** `fetch` con `BASE_URL` derivada de `VITE_API_URL`; los errores se leen de `body.detail`.
+- **Cliente HTTP:** usar `apiRequest()` de `src/lib/api.ts`, que agrega el token y lanza `ApiError` (`status`, `code`, `detail`, `campos` para los 422). No llamar a `fetch` directamente.
+- **Sesión:** `useAuth()` / `useUsuario()` y `useSede()` (sede vista; elegible sólo por el Superadministrador). El token vive en `sessionStorage`: cerrar la pestaña cierra la sesión.
+- **Roles:** los componentes reciben `role: "student" | "teacher" | "admin"`, derivado del rol real con `uiRole()`.
 - **Tema:** colores desde `useC()` / `ThemeCtx` (`src/theme.ts`), nunca hardcodeados; soporte claro/oscuro (GLO-06).
 - **Idioma:** textos de interfaz en español rioplatense; nombres de dominio en español, términos técnicos en inglés.
 - **Tipado:** TypeScript `strict`; evitar `any` en código nuevo.
@@ -115,7 +123,8 @@ src/
 
 ## Integración con el backend
 
-- Prefijo de la API: `/api/v1/<modulo>` (`inventory`, `spaces`, `auth`, `users`, `config`).
+- Prefijo de la API: `/api/v1/<modulo>` (`inventory`, `spaces`, `auth`, `users`, `config`). Todos los endpoints, salvo login y registro, requieren sesión.
+- Ante un `401` con `code` `TOKEN_*` el cliente cierra la sesión y vuelve al login con un aviso.
 - Errores de negocio: `{"detail": "<mensaje>", "code": "<CODIGO>"}`; el `code` permite mostrar mensajes específicos.
 - Sedes válidas: `"Ushuaia"` y `"Río Grande"` (mismos valores que el `SedeEnum` del backend).
 - Las reglas operativas (horario 09:00–16:00, plazos, anticipación mínima) las define el backend en `/api/v1/config/parametros`; la interfaz debe leerlas en lugar de fijarlas en el código.
@@ -130,6 +139,12 @@ El equipo aplica **Spec-Driven Development** dentro de Scrum (ClickUp):
 2. Ramas desde `develop`: `feat/<tema>`, `fix/<tema>`, `docs/<tema>`.
 3. Commits con [Conventional Commits](https://www.conventionalcommits.org/) en español.
 4. Pull Request a `develop` con revisión de al menos un integrante y `npm run build` sin errores.
+
+---
+
+## Desarrollo en WSL
+
+En WSL sobre una carpeta de Windows (`/mnt/c/...`) Vite no recibe eventos de cambio de archivos: si las modificaciones no se reflejan, reiniciar `npm run dev`.
 
 ---
 

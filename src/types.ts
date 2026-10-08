@@ -1,5 +1,6 @@
 // ─── Shared app types ─────────────────────────────────────────────────────────
-export type Role = "student" | "teacher" | "admin" | "icse"
+// Rol de UI derivado de RolUsuario del backend (ver features/auth/roles.ts).
+export type Role = "student" | "teacher" | "admin"
 export type Screen =
   | "catalog"
   | "detail"
@@ -14,6 +15,8 @@ export type Screen =
   | "admin-calendar"
   | "users"
   | "notes"
+  | "profile"
+  | "parameters"
 export type BehaviorChip =
   | "tardio"
   | "sucio"

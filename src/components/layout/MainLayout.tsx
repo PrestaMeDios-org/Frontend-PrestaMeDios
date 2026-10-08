@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react"
 import { useC } from "../../theme"
 import type { Role, Screen, CartType } from "../../types"
+import type { Sede } from "../../features/auth/types"
 import { Sidebar } from "./Sidebar"
 import { Navbar } from "./Navbar"
 
@@ -10,7 +11,9 @@ export function MainLayout({
   role,
   screen,
   onNavigate,
-  onRoleChange,
+  user,
+  sede,
+  onLogout,
   title,
   subtitle,
   dark,
@@ -25,7 +28,9 @@ export function MainLayout({
   role: Role
   screen: Screen
   onNavigate: (s: Screen) => void
-  onRoleChange: (r: Role) => void
+  user: { initials: string; name: string; sub: string; email: string }
+  sede: { vista: Sede | null; puedeElegir: boolean; onChange: (s: Sede | null) => void }
+  onLogout: () => void
   title: string
   subtitle?: string
   dark: boolean
@@ -53,6 +58,7 @@ export function MainLayout({
         onNavigate={onNavigate}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((c) => !c)}
+        user={user}
       />
       <div
         style={{
@@ -63,8 +69,9 @@ export function MainLayout({
         }}
       >
         <Navbar
-          role={role}
-          onRoleChange={onRoleChange}
+          user={user}
+          sede={sede}
+          onLogout={onLogout}
           title={title}
           subtitle={subtitle}
           dark={dark}
