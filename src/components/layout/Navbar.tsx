@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react"
 import { useC } from "../../theme"
 import { Ico } from "../ui/icons"
-import type { Role, CartType } from "../../types"
+import type { CartType } from "../../types"
+import type { Sede } from "../../features/auth/types"
 
 const NOTIFICATIONS_DATA = [
   {
@@ -47,8 +48,9 @@ const NOTIFICATIONS_DATA = [
 ]
 
 export function Navbar({
-  role,
-  onRoleChange,
+  user,
+  sede,
+  onLogout,
   title,
   subtitle,
   dark,
@@ -59,8 +61,10 @@ export function Navbar({
   cartType,
   onCartOpen,
 }: {
-  role: Role
-  onRoleChange: (r: Role) => void
+  user: { name: string; email: string }
+  /** Sede vista (GLO-01): elegible sólo para el Superadministrador. */
+  sede: { vista: Sede | null; puedeElegir: boolean; onChange: (s: Sede | null) => void }
+  onLogout: () => void
   title: string
   subtitle?: string
   dark: boolean
@@ -165,47 +169,53 @@ export function Navbar({
               textTransform: "uppercase",
             }}
           >
-            Vista:
+            Sede:
           </span>
-          <div
-            style={{
-              display: "flex",
-              gap: 2,
-              background: C.card,
-              borderRadius: 7,
-              padding: "2px",
-              border: `1px solid ${C.border}`,
-            }}
-          >
-            {(["student", "teacher", "admin"] as Role[]).map((r) => (
-              <button
-                key={r}
-                onClick={() => onRoleChange(r)}
-                style={{
-                  padding: "5px 11px",
-                  borderRadius: 5,
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "'Outfit',sans-serif",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  background: role === r ? C.crimson : "transparent",
-                  color: role === r ? "white" : C.textMuted,
-                  transition: "all 0.12s",
-                }}
-              >
-                {
-                  (
-                    {
-                      student: "Estudiante",
-                      teacher: "Docente",
-                      admin: "Admin",
-                    } as Record<Role, string>
-                  )[r]
-                }
-              </button>
-            ))}
-          </div>
+          {sede.puedeElegir ? (
+            <div
+              style={{
+                display: "flex",
+                gap: 2,
+                background: C.card,
+                borderRadius: 7,
+                padding: "2px",
+                border: `1px solid ${C.border}`,
+              }}
+            >
+              {([null, "Ushuaia", "Río Grande"] as (Sede | null)[]).map((s) => (
+                <button
+                  key={s ?? "ambas"}
+                  onClick={() => sede.onChange(s)}
+                  style={{
+                    padding: "5px 11px",
+                    borderRadius: 5,
+                    border: "none",
+                    cursor: "pointer",
+                    fontFamily: "'Outfit',sans-serif",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background: sede.vista === s ? C.crimson : "transparent",
+                    color: sede.vista === s ? "white" : C.textMuted,
+                    transition: "all 0.12s",
+                  }}
+                >
+                  {s ?? "Ambas sedes"}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span
+              style={{
+                padding: "5px 11px",
+                fontFamily: "'Outfit',sans-serif",
+                fontSize: 12,
+                fontWeight: 600,
+                color: C.text,
+              }}
+            >
+              {sede.vista}
+            </span>
+          )}
         </div>
         {cartCount > 0 && (
           <button
@@ -524,14 +534,7 @@ export function Navbar({
                     color: C.text,
                   }}
                 >
-                  {
-                    ({
-                      student: "Juan Pérez",
-                      teacher: "Marcela Vega",
-                      admin: "No Docente",
-                      icse: "Coordinación",
-                    } as Record<Role, string>)[role]
-                  }
+                  {user.name}
                 </div>
                 <div
                   style={{
@@ -540,14 +543,7 @@ export function Navbar({
                     color: C.textFaint,
                   }}
                 >
-                  {
-                    ({
-                      student: "jperez@icse.edu.ar",
-                      teacher: "mvega@icse.edu.ar",
-                      admin: "nododente@icse.edu.ar",
-                      icse: "coordinacion@icse.edu.ar",
-                    } as Record<Role, string>)[role]
-                  }
+                  {user.email}
                 </div>
               </div>
               {[
@@ -594,7 +590,10 @@ export function Navbar({
                     </svg>
                   ),
                   label: "Cerrar Sesión",
-                  action: () => setUserMenuOpen(false),
+                  action: () => {
+                    setUserMenuOpen(false)
+                    onLogout()
+                  },
                   color: C.occupied,
                 },
               ].map(({ icon, label, action, color }: any) => (

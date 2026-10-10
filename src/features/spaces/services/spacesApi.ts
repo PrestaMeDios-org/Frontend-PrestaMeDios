@@ -1,62 +1,18 @@
-import type { Bloqueo, Espacio, Reserva } from "../types"
+import { apiRequest } from "../../../lib/api"
+import type { Sede } from "../../auth/types"
+import type { Bloqueo, Disponibilidad, Espacio, EstadoReserva, Reserva } from "../types"
 
+// Contrato de SPEC-02 §3.2: sede como texto, solicitante tomado del token,
+// disponibilidad sin identidad de otros usuarios y horario desde config.
 const BASE_URL = (
   import.meta.env.VITE_SPACES_API_URL ??
   `${import.meta.env.VITE_API_URL ?? "http://localhost:8000"}/api/v1/spaces`
 ).replace(/\/$/, "")
 
-async function readErrorMessage(res: Response): Promise<string> {
-  const text = await res.text()
-  if (!text) return `Error ${res.status}`
+const request = <T>(path: string, init?: Parameters<typeof apiRequest>[1]) =>
+  apiRequest<T>(`${BASE_URL}${path}`, init)
 
-  try {
-    const parsed = JSON.parse(text)
-    const message =
-      parsed?.detail ??
-      parsed?.message ??
-      parsed?.error ??
-      parsed?.detail?.message ??
-      parsed?.errors?.[0]?.message
-
-    if (typeof message === "string" && message.trim()) return message
-  } catch {
-    // Fall through to the raw response body if the server is not returning JSON.
-  }
-
-  return text
-}
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let res: Response
-  try {
-    res = await fetch(`${BASE_URL}${path}`, {
-      headers: { "Content-Type": "application/json" },
-      ...init,
-    })
-  } catch {
-    throw new Error(
-      "No se pudo conectar con la API de reservas. Verificá que el backend esté levantado y que VITE_SPACES_API_URL apunte al contrato correcto.",
-    )
-  }
-
-  if (!res.ok) {
-    const detail = await readErrorMessage(res)
-    if (res.status === 409) {
-      throw new Error(`Conflicto de disponibilidad: ${detail}`)
-    }
-    throw new Error(detail || `Error ${res.status}`)
-  }
-
-  const raw = await res.text()
-  if (!raw) return undefined as T
-  try {
-    return JSON.parse(raw) as T
-  } catch {
-    return raw as unknown as T
-  }
-}
-
-type EspacioApi = { id_espacio: number; nombre: string; tipo?: string | null; id_sede: number }
+type EspacioApi = { id_espacio: number; nombre: string; tipo?: string | null; sede: Sede }
 
 type ReservaApi = {
   id_reserva: number
@@ -65,7 +21,7 @@ type ReservaApi = {
   fecha_reserva: string
   hora_inicio: string
   hora_fin: string
-  estado_reserva: Reserva["estado"]
+  estado_reserva: EstadoReserva
   motivo?: string | null
 }
 
@@ -81,17 +37,19 @@ type BloqueoApi = {
 
 type DisponibilidadApi = {
   fecha: string
-  id_sede: number
-  id_espacio: number | null
-  reservas_ocupadas: ReservaApi[]
+  horario_apertura: string
+  horario_cierre: string
+  franjas_ocupadas: { id_espacio: number; hora_inicio: string; hora_fin: string; estado_reserva: EstadoReserva }[]
   bloqueos: BloqueoApi[]
 }
+
+const hhmm = (h: string) => h.slice(0, 5)
 
 const mapEspacio = (e: EspacioApi): Espacio => ({
   id: e.id_espacio,
   nombre: e.nombre,
   tipo: e.tipo ?? undefined,
-  idSede: e.id_sede,
+  sede: e.sede,
 })
 
 const mapReserva = (r: ReservaApi): Reserva => ({
@@ -99,8 +57,8 @@ const mapReserva = (r: ReservaApi): Reserva => ({
   idUsuario: r.id_usuario,
   idEspacio: r.id_espacio,
   fecha: r.fecha_reserva,
-  horaInicio: r.hora_inicio.slice(0, 5),
-  horaFin: r.hora_fin.slice(0, 5),
+  horaInicio: hhmm(r.hora_inicio),
+  horaFin: hhmm(r.hora_fin),
   estado: r.estado_reserva,
   motivo: r.motivo ?? undefined,
 })
@@ -110,68 +68,65 @@ const mapBloqueo = (b: BloqueoApi): Bloqueo => ({
   idEspacio: b.id_espacio,
   fechaInicio: b.fecha_inicio,
   fechaFin: b.fecha_fin,
-  horaInicio: b.hora_inicio ? b.hora_inicio.slice(0, 5) : undefined,
-  horaFin: b.hora_fin ? b.hora_fin.slice(0, 5) : undefined,
+  horaInicio: b.hora_inicio ? hhmm(b.hora_inicio) : undefined,
+  horaFin: b.hora_fin ? hhmm(b.hora_fin) : undefined,
   motivo: b.motivo,
 })
 
-export async function getEspacios(): Promise<Espacio[]> {
-  const data = await request<EspacioApi[]>("/espacios")
-  return data.map(mapEspacio)
+export async function getEspacios(sede?: Sede | null): Promise<Espacio[]> {
+  const qs = sede ? `?${new URLSearchParams({ sede })}` : ""
+  return (await request<EspacioApi[]>(`/espacios${qs}`)).map(mapEspacio)
 }
 
-export async function getDisponibilidad(
-  idSede: number,
-  fecha: string,
-  idEspacio?: number,
-): Promise<{ reservas: Reserva[]; bloqueos: Bloqueo[] }> {
-  const params = new URLSearchParams({ id_sede: String(idSede), fecha })
-  if (idEspacio != null) params.set("id_espacio", String(idEspacio))
+export async function getDisponibilidad(fecha: string, idEspacio: number): Promise<Disponibilidad> {
+  const params = new URLSearchParams({ fecha, id_espacio: String(idEspacio) })
   const data = await request<DisponibilidadApi>(`/disponibilidad?${params}`)
   return {
-    reservas: data.reservas_ocupadas.map(mapReserva),
+    ocupaciones: data.franjas_ocupadas.map((f) => ({
+      idEspacio: f.id_espacio,
+      fecha: data.fecha,
+      horaInicio: hhmm(f.hora_inicio),
+      horaFin: hhmm(f.hora_fin),
+      estado: f.estado_reserva,
+    })),
     bloqueos: data.bloqueos.map(mapBloqueo),
+    apertura: hhmm(data.horario_apertura),
+    cierre: hhmm(data.horario_cierre),
   }
 }
 
 export async function createReserva(payload: {
-  id_usuario: number
   id_espacio: number
   fecha_reserva: string
   hora_inicio: string
   hora_fin: string
+  motivo?: string
 }): Promise<Reserva> {
-  const data = await request<ReservaApi>("/reservas", {
-    method: "POST",
-    body: JSON.stringify({ ...payload, estado_reserva: "Pendiente" }),
-  })
-  return mapReserva(data)
+  return mapReserva(await request<ReservaApi>("/reservas", { method: "POST", json: payload }))
 }
 
+/** Estudiantes y docentes reciben sólo las propias; administradores, las de su sede. */
 export async function listReservas(params?: {
   id_espacio?: number
   fecha?: string
-  estado?: string
-  id_usuario?: number
+  estado?: EstadoReserva
 }): Promise<Reserva[]> {
   const q = new URLSearchParams()
   if (params?.id_espacio != null) q.set("id_espacio", String(params.id_espacio))
   if (params?.fecha) q.set("fecha", params.fecha)
   if (params?.estado) q.set("estado", params.estado)
-  if (params?.id_usuario != null) q.set("id_usuario", String(params.id_usuario))
   const qs = q.toString()
-  const data = await request<ReservaApi[]>(`/reservas${qs ? `?${qs}` : ""}`)
-  return data.map(mapReserva)
+  return (await request<ReservaApi[]>(`/reservas${qs ? `?${qs}` : ""}`)).map(mapReserva)
 }
 
 export async function updateReservaEstado(
   idReserva: number,
-  nuevo_estado: "Aprobada" | "Rechazada" | "Cancelada",
+  nuevo_estado: EstadoReserva,
   motivo_rechazo?: string,
 ): Promise<Reserva> {
   const data = await request<ReservaApi>(`/reservas/${idReserva}/estado`, {
     method: "PATCH",
-    body: JSON.stringify({ nuevo_estado, motivo_rechazo }),
+    json: { nuevo_estado, ...(motivo_rechazo ? { motivo_rechazo } : {}) },
   })
   return mapReserva(data)
 }
@@ -184,9 +139,5 @@ export async function createBloqueo(payload: {
   hora_fin?: string
   motivo: string
 }): Promise<Bloqueo> {
-  const data = await request<BloqueoApi>("/bloqueos", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  })
-  return mapBloqueo(data)
+  return mapBloqueo(await request<BloqueoApi>("/bloqueos", { method: "POST", json: payload }))
 }

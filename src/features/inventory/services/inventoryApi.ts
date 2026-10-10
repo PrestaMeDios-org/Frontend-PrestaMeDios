@@ -7,18 +7,13 @@ import type {
   UnidadFisicaDTO,
 } from "../types"
 
-const BASE_URL = `${import.meta.env.VITE_API_URL ?? "http://localhost:8000"}/api/v1/inventory`
+import { apiRequest } from "../../../lib/api"
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => null)
-    throw new Error(body?.detail ?? `HTTP ${res.status}`)
-  }
-  return res.json() as Promise<T>
+const BASE = "/api/v1/inventory"
+
+// Cliente compartido: agrega el token de sesión y normaliza los errores (SPEC-02 §6.4).
+function request<T>(path: string, init?: { method?: string; json?: unknown; signal?: AbortSignal }): Promise<T> {
+  return apiRequest<T>(`${BASE}${path}`, init)
 }
 
 export interface EquipamientoFiltros {
@@ -45,7 +40,7 @@ export function crearEquipamiento(
 ): Promise<EquipamientoDTO> {
   return request("/equipamiento", {
     method: "POST",
-    body: JSON.stringify(payload),
+    json: payload,
   })
 }
 
@@ -55,7 +50,7 @@ export function cambiarEstadoUnidad(
 ): Promise<UnidadFisicaDTO> {
   return request(`/unidades/${unidadId}/estado`, {
     method: "PATCH",
-    body: JSON.stringify({ estado }),
+    json: { estado },
   })
 }
 

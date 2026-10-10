@@ -8,18 +8,23 @@ import {
   listReservas,
   updateReservaEstado,
 } from "../services/spacesApi"
-import type { Bloqueo, Espacio, Reserva } from "../types"
+import type { Bloqueo, Espacio, Ocupacion, Reserva } from "../types"
 import type { Role } from "../../../types"
+import type { Sede } from "../../auth/types"
+import { useSede, useUsuario } from "../../auth/AuthContext"
+import { mensajeDeError } from "../../../lib/api"
 import { CalendarGrid } from "../components/CalendarGrid"
 
-const SLOTS: string[] = (() => {
+/** Franjas de una hora dentro del horario operativo vigente (GLO-02, desde config). */
+const franjas = (apertura: string, cierre: string): string[] => {
   const out: string[] = []
-  for (let h = 9; h < 16; h++) {
-    out.push(`${String(h).padStart(2, "0")}:00`)
-    out.push(`${String(h).padStart(2, "0")}:30`)
+  const [ha, ma] = apertura.split(":").map(Number)
+  const [hc, mc] = cierre.split(":").map(Number)
+  for (let m = ha * 60 + ma; m + 60 <= hc * 60 + mc; m += 60) {
+    out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`)
   }
   return out
-})()
+}
 
 const addHour = (hora: string) =>
   `${String(Number(hora.slice(0, 2)) + 1).padStart(2, "0")}:${hora.slice(3)}`
@@ -27,26 +32,21 @@ const addHour = (hora: string) =>
 const toISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
-const USER_BY_ROLE: Record<Role, number> = {
-  student: 1,
-  teacher: 2,
-  admin: 3,
-  icse: 4,
-}
-
 export function SpacesPage({ role = "student" }: { role?: Role }) {
   const C = useC()
-  const [userIdOverride, setUserIdOverride] = useState<number | null>(null)
-  const currentUserId = userIdOverride ?? USER_BY_ROLE[role]
+  const usuario = useUsuario()
+  const { sedeVista } = useSede()
+  const currentUserId = usuario.id
   const [espacios, setEspacios] = useState<Espacio[]>([])
-  const [selectedSede, setSelectedSede] = useState<number | null>(null)
+  const [selectedSede, setSelectedSede] = useState<Sede | null>(null)
+  const [horario, setHorario] = useState({ apertura: "09:00", cierre: "16:00" })
   const [idEspacio, setIdEspacio] = useState<number | null>(null)
   const [fecha, setFecha] = useState<string | null>(null)
   const [mes, setMes] = useState(() => {
     const hoy = new Date()
     return new Date(hoy.getFullYear(), hoy.getMonth(), 1)
   })
-  const [reservas, setReservas] = useState<Reserva[]>([])
+  const [reservas, setReservas] = useState<Ocupacion[]>([])
   const [bloqueos, setBloqueos] = useState<Bloqueo[]>([])
   const [pendientes, setPendientes] = useState<Reserva[]>([])
   const [misReservas, setMisReservas] = useState<Reserva[]>([])
@@ -54,10 +54,10 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const esAdmin = role === "admin" || role === "icse"
+  const esAdmin = role === "admin"
 
   useEffect(() => {
-    getEspacios()
+    getEspacios(sedeVista)
       .then((data) => {
         setEspacios(data)
         if (data.length === 0) {
@@ -65,12 +65,12 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
           setIdEspacio(null)
           return
         }
-        const firstSede = data[0].idSede
+        const firstSede = data[0].sede
         setSelectedSede(firstSede)
-        setIdEspacio(data.find((e) => e.idSede === firstSede)?.id ?? data[0].id)
+        setIdEspacio(data.find((e) => e.sede === firstSede)?.id ?? data[0].id)
       })
-      .catch((e) => setError(e instanceof Error ? e.message : "No se pudo cargar la lista de espacios"))
-  }, [])
+      .catch((e) => setError(mensajeDeError(e, "No se pudo cargar la lista de espacios")))
+  }, [sedeVista])
 
   useEffect(() => {
     const espacio = espacios.find((e) => e.id === idEspacio)
@@ -81,10 +81,11 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     const total = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate()
     for (let d = 1; d <= total; d++)
       dias.push(toISO(new Date(mes.getFullYear(), mes.getMonth(), d)))
-    Promise.all(dias.map((dia) => getDisponibilidad(espacio.idSede, dia, espacio.id)))
+    Promise.all(dias.map((dia) => getDisponibilidad(dia, espacio.id)))
       .then((results) => {
-        setReservas(results.flatMap((r) => r.reservas))
+        setReservas(results.flatMap((r) => r.ocupaciones))
         setBloqueos(results.flatMap((r) => r.bloqueos))
+        if (results[0]) setHorario({ apertura: results[0].apertura, cierre: results[0].cierre })
       })
       .catch((e) => setError(e.message))
       .finally(() => setIsLoading(false))
@@ -101,7 +102,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   }, [fecha, idEspacio])
 
   const cargarMisReservas = () => {
-    listReservas({ id_usuario: currentUserId })
+    listReservas()
       .then((list) =>
         setMisReservas(
           list.filter((r) => r.estado === "Pendiente" || r.estado === "Aprobada" || r.estado === "En_Uso"),
@@ -115,8 +116,8 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   }
 
   useEffect(() => {
-    cargarMisReservas()
     if (esAdmin) cargarPendientesAdmin()
+    else cargarMisReservas()
   }, [esAdmin, currentUserId, idEspacio, fecha, reservas.length])
 
   const refrescarMes = () => {
@@ -126,10 +127,11 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     const total = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate()
     for (let d = 1; d <= total; d++)
       dias.push(toISO(new Date(mes.getFullYear(), mes.getMonth(), d)))
-    Promise.all(dias.map((dia) => getDisponibilidad(espacio.idSede, dia, espacio.id)))
+    Promise.all(dias.map((dia) => getDisponibilidad(dia, espacio.id)))
       .then((results) => {
-        setReservas(results.flatMap((r) => r.reservas))
+        setReservas(results.flatMap((r) => r.ocupaciones))
         setBloqueos(results.flatMap((r) => r.bloqueos))
+        if (results[0]) setHorario({ apertura: results[0].apertura, cierre: results[0].cierre })
       })
       .catch((e) => setError(e.message))
   }
@@ -138,18 +140,16 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     if (!fecha || idEspacio == null) return
     setError(null)
     try {
-      const nueva = await createReserva({
-        id_usuario: currentUserId,
+      await createReserva({
         id_espacio: idEspacio,
         fecha_reserva: fecha,
         hora_inicio: `${slot}:00`,
         hora_fin: `${addHour(slot)}:00`,
       })
-      setReservas([...reservas, nueva])
       cargarMisReservas()
       listReservas({ id_espacio: idEspacio, fecha }).then(setPendientes).catch(() => {})
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo crear la reserva")
+      setError(mensajeDeError(e, "No se pudo crear la reserva"))
     }
   }
 
@@ -163,9 +163,9 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     }
   }
 
-  const sedes = Array.from(new Set(espacios.map((e) => e.idSede))).sort((a, b) => a - b)
+  const sedes = Array.from(new Set(espacios.map((e) => e.sede)))
   const espacioActual = espacios.find((e) => e.id === idEspacio)
-  const espaciosPorSede = espacios.filter((e) => e.idSede === (selectedSede ?? espacioActual?.idSede ?? -1))
+  const espaciosPorSede = espacios.filter((e) => e.sede === (selectedSede ?? espacioActual?.sede))
   const delEspacio = reservas.filter((r) => r.idEspacio === idEspacio)
   const delEspacioBloqueos = bloqueos.filter((b) => b.idEspacio === idEspacio)
 
@@ -200,8 +200,8 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [bloFechaInicio, setBloFechaInicio] = useState("")
   const [bloFechaFin, setBloFechaFin] = useState("")
   const [bloTodoElDia, setBloTodoElDia] = useState(true)
-  const [bloHoraInicio, setBloHoraInicio] = useState("09:00")
-  const [bloHoraFin, setBloHoraFin] = useState("16:00")
+  const [bloHoraInicio, setBloHoraInicio] = useState(horario.apertura)
+  const [bloHoraFin, setBloHoraFin] = useState(horario.cierre)
   const [bloMotivo, setBloMotivo] = useState("")
 
   const crearBloqueo = async () => {
@@ -262,7 +262,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               key={sedeId}
               onClick={() => {
                 setSelectedSede(sedeId)
-                const nextSpace = espacios.find((e) => e.idSede === sedeId)
+                const nextSpace = espacios.find((e) => e.sede === sedeId)
                 if (nextSpace) setIdEspacio(nextSpace.id)
               }}
               style={{
@@ -276,7 +276,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                 fontSize: 13,
               }}
             >
-              Sede {sedeId}
+              {sedeId}
             </button>
           ))}
         </div>
@@ -317,46 +317,6 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
           {error}
         </div>
       )}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 18,
-          padding: "10px 12px",
-          borderRadius: 12,
-          border: `1px solid ${C.border}`,
-          background: C.crimsonLight,
-          color: C.text,
-          fontFamily: "'Inter',sans-serif",
-          fontSize: 12.5,
-        }}
-      >
-        <span style={{ fontWeight: 700 }}>id_usuario para la solicitud</span>
-        <input
-          type="number"
-          min={1}
-          value={userIdOverride ?? currentUserId}
-          onChange={(e) => {
-            const next = e.target.value
-            setUserIdOverride(next === "" ? null : Number(next))
-          }}
-          style={{
-            width: 110,
-            padding: "6px 8px",
-            borderRadius: 8,
-            border: `1px solid ${C.border}`,
-            background: C.card,
-            color: C.text,
-            fontFamily: "'Inter',sans-serif",
-            fontSize: 12.5,
-          }}
-        />
-        <span style={{ color: C.textMuted }}>
-          El contrato actual del backend usa este valor para filtrar reservas; no representa autenticación real.
-        </span>
-      </div>
       <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 18 }}>
         <CalendarGrid
           reservas={delEspacio}
@@ -381,7 +341,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               marginBottom: 12,
             }}
           >
-            {fecha ? `Franjas del ${fecha} (09:00–16:00)` : "Seleccioná un día"}
+            {fecha ? `Franjas del ${fecha} (${horario.apertura}–${horario.cierre})` : "Seleccioná un día"}
           </div>
           {isLoading && (
             <div style={{ color: C.textFaint, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
@@ -390,7 +350,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
           )}
           {fecha && !isLoading && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {SLOTS.filter((_, i) => i % 2 === 0).map((slot) => {
+              {franjas(horario.apertura, horario.cierre).map((slot) => {
                 const ocupado = slotOcupado(slot)
                 const bloqueado = slotBloqueado(slot)
                 const pendiente = slotPendiente(slot)
@@ -398,7 +358,8 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                 return (
                   <button
                     key={slot}
-                    disabled={inhabilitado}
+                    disabled={inhabilitado || esAdmin}
+                    title={esAdmin ? "Las reservas las solicitan estudiantes y docentes." : undefined}
                     onClick={() => reservar(slot)}
                     style={{
                       padding: "8px 12px",
@@ -418,7 +379,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                           : pendiente
                             ? C.pending
                             : C.available,
-                      cursor: inhabilitado ? "default" : "pointer",
+                      cursor: inhabilitado || esAdmin ? "default" : "pointer",
                       fontFamily: "'Inter',sans-serif",
                       fontSize: 12.5,
                     }}
@@ -432,6 +393,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
         </div>
       </div>
 
+      {!esAdmin && (
       <div
         style={{
           marginTop: 18,
@@ -484,6 +446,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
           </div>
         ))}
       </div>
+      )}
 
       {esAdmin && (
         <>
