@@ -121,33 +121,6 @@ src/
 
 ---
 
-## Integración con el backend
-
-- Prefijo de la API: `/api/v1/<modulo>` (`inventory`, `spaces`, `auth`, `users`, `config`). Todos los endpoints, salvo login y registro, requieren sesión.
-- Ante un `401` con `code` `TOKEN_*` el cliente cierra la sesión y vuelve al login con un aviso.
-- Errores de negocio: `{"detail": "<mensaje>", "code": "<CODIGO>"}`; el `code` permite mostrar mensajes específicos.
-- Sedes válidas: `"Ushuaia"` y `"Río Grande"` (mismos valores que el `SedeEnum` del backend).
-- Las reglas operativas (horario 09:00–16:00, plazos, anticipación mínima) las define el backend en `/api/v1/config/parametros`; la interfaz debe leerlas en lugar de fijarlas en el código.
-
----
-
-## Flujo de trabajo
-
-El equipo aplica **Spec-Driven Development** dentro de Scrum (ClickUp):
-
-1. Toda funcionalidad parte de un spec aprobado con contratos y criterios de aceptación.
-2. Ramas desde `develop`: `feat/<tema>`, `fix/<tema>`, `docs/<tema>`.
-3. Commits con [Conventional Commits](https://www.conventionalcommits.org/) en español.
-4. Pull Request a `develop` con revisión de al menos un integrante y `npm run build` sin errores.
-
----
-
-## Desarrollo en WSL
-
-En WSL sobre una carpeta de Windows (`/mnt/c/...`) Vite no recibe eventos de cambio de archivos: si las modificaciones no se reflejan, reiniciar `npm run dev`.
-
----
-
 ## Equipo
 
 Proyecto académico de la asignatura **Laboratorio de Software** (UNTDF, curso 2026).
