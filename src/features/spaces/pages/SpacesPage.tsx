@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useC } from "../../../theme"
 import {
   createBloqueo,
+  createEspacio,
   createReserva,
   getDisponibilidad,
   getEspacios,
@@ -10,10 +11,12 @@ import {
 } from "../services/spacesApi"
 import type { Bloqueo, Espacio, Ocupacion, Reserva } from "../types"
 import type { Role } from "../../../types"
-import type { Sede } from "../../auth/types"
+import { SEDES, type Sede } from "../../auth/types"
 import { useSede, useUsuario } from "../../auth/AuthContext"
 import { mensajeDeError } from "../../../lib/api"
 import { CalendarGrid } from "../components/CalendarGrid"
+import { Alert, Card, SelectField, TextField } from "../../../components/ui/Form"
+import { Button } from "../../../components/ui/Button"
 
 /** Franjas de una hora dentro del horario operativo vigente (GLO-02, desde config). */
 const franjas = (apertura: string, cierre: string): string[] => {
@@ -53,8 +56,15 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [pendientesAdmin, setPendientesAdmin] = useState<Reserva[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mensajeExito, setMensajeExito] = useState<string | null>(null)
+  const [nombreNuevoEspacio, setNombreNuevoEspacio] = useState("")
+  const [tipoNuevoEspacio, setTipoNuevoEspacio] = useState("")
+  const [sedeNuevoEspacio, setSedeNuevoEspacio] = useState<Sede>(sedeVista ?? SEDES[0])
+  const [creandoEspacio, setCreandoEspacio] = useState(false)
 
   const esAdmin = role === "admin"
+  const esSuperAdmin = usuario.rol === "SUPERADMIN"
+  const puedeCrearEspacio = usuario.rol === "ADMIN_LOCAL" || esSuperAdmin
 
   useEffect(() => {
     getEspacios(sedeVista)
@@ -163,6 +173,36 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     }
   }
 
+  const crearEspacio = async () => {
+    const nombre = nombreNuevoEspacio.trim()
+    if (!nombre) {
+      setError("Ingres\u00e1 el nombre del espacio.")
+      setMensajeExito(null)
+      return
+    }
+
+    setError(null)
+    setMensajeExito(null)
+    setCreandoEspacio(true)
+    try {
+      const nuevo = await createEspacio({
+        nombre,
+        ...(tipoNuevoEspacio.trim() ? { tipo: tipoNuevoEspacio.trim() } : {}),
+        ...(esSuperAdmin ? { sede: sedeNuevoEspacio } : {}),
+      })
+      setEspacios((actuales) => [...actuales.filter((espacio) => espacio.id !== nuevo.id), nuevo])
+      setSelectedSede(nuevo.sede)
+      setIdEspacio(nuevo.id)
+      setNombreNuevoEspacio("")
+      setTipoNuevoEspacio("")
+      setMensajeExito(`Se cre\u00f3 el espacio "${nuevo.nombre}" en ${nuevo.sede}.`)
+    } catch (e) {
+      setError(mensajeDeError(e, "No se pudo crear el espacio"))
+    } finally {
+      setCreandoEspacio(false)
+    }
+  }
+
   const sedes = Array.from(new Set(espacios.map((e) => e.sede)))
   const espacioActual = espacios.find((e) => e.id === idEspacio)
   const espaciosPorSede = espacios.filter((e) => e.sede === (selectedSede ?? espacioActual?.sede))
@@ -244,6 +284,52 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
 
   return (
     <div style={{ padding: "24px 28px", flex: 1, overflowY: "auto" }}>
+      {puedeCrearEspacio && (
+        <Card title="Cargar nuevo espacio">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+            <TextField
+              label="Nombre"
+              value={nombreNuevoEspacio}
+              onChange={setNombreNuevoEspacio}
+              placeholder="Ej.: Sala de edici\u00f3n"
+              disabled={creandoEspacio}
+            />
+            <TextField
+              label="Tipo (opcional)"
+              value={tipoNuevoEspacio}
+              onChange={setTipoNuevoEspacio}
+              placeholder="Ej.: Edici\u00f3n"
+              disabled={creandoEspacio}
+            />
+            {esSuperAdmin ? (
+              <SelectField
+                label="Sede"
+                value={sedeNuevoEspacio}
+                onChange={setSedeNuevoEspacio}
+                options={SEDES.map((sede) => ({ value: sede, label: sede }))}
+                disabled={creandoEspacio}
+              />
+            ) : (
+              <div style={{ alignSelf: "end", padding: "9px 0", fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.textMuted }}>
+                Sede: {usuario.sede ?? "No asignada"}
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <Button
+              onClick={crearEspacio}
+              disabled={creandoEspacio || (usuario.rol === "ADMIN_LOCAL" && !usuario.sede)}
+            >
+              {creandoEspacio ? "Creando..." : "Crear espacio"}
+            </Button>
+          </div>
+        </Card>
+      )}
+      {mensajeExito && (
+        <div style={{ marginTop: 14 }}>
+          <Alert tipo="ok">{mensajeExito}</Alert>
+        </div>
+      )}
       <div style={{ display: "grid", gap: 14, marginBottom: 18 }}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <span
