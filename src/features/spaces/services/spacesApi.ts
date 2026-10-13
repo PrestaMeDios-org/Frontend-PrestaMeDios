@@ -14,6 +14,12 @@ const request = <T>(path: string, init?: Parameters<typeof apiRequest>[1]) =>
 
 type EspacioApi = { id_espacio: number; nombre: string; tipo?: string | null; sede: Sede }
 
+export type EspacioCreate = {
+  nombre: string
+  tipo?: string
+  sede?: Sede
+}
+
 type ReservaApi = {
   id_reserva: number
   id_usuario: number
@@ -76,6 +82,10 @@ const mapBloqueo = (b: BloqueoApi): Bloqueo => ({
 export async function getEspacios(sede?: Sede | null): Promise<Espacio[]> {
   const qs = sede ? `?${new URLSearchParams({ sede })}` : ""
   return (await request<EspacioApi[]>(`/espacios${qs}`)).map(mapEspacio)
+}
+
+export async function createEspacio(payload: EspacioCreate): Promise<Espacio> {
+  return mapEspacio(await request<EspacioApi>("/espacios", { method: "POST", json: payload }))
 }
 
 export async function getDisponibilidad(fecha: string, idEspacio: number): Promise<Disponibilidad> {
