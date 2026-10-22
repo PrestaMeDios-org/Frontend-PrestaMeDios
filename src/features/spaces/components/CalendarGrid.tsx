@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useC } from "../../../theme"
-import type { Bloqueo, Reserva } from "../types"
+import type { Bloqueo, Ocupacion } from "../types"
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -20,7 +20,7 @@ export function CalendarGrid({
   onSelectFecha,
   onMonthChange,
 }: {
-  reservas: Reserva[]
+  reservas: Ocupacion[]
   bloqueos: Bloqueo[]
   selectedFecha: string | null
   onSelectFecha: (iso: string) => void
