@@ -29,12 +29,18 @@ export interface UnidadFisicaDTO {
 export interface UnidadFisicaCreateDTO {
   numero_serie: string
   codigo_inventario: string
-  sede: Sede
+  // Opcional: el backend la fija para ADMIN_LOCAL y la exige al SUPERADMIN (PRE-19).
+  sede?: Sede
   locker?: number | null
-  estado?: EstadoUnidad
 }
 
-export interface EquipamientoDTO {
+export interface UnidadFisicaUpdateDTO {
+  numero_serie?: string
+  codigo_inventario?: string
+  locker?: number | null
+}
+
+interface EquipamientoBaseDTO {
   id: number
   codigo: string
   nombre: string
@@ -44,15 +50,28 @@ export interface EquipamientoDTO {
   descripcion: string | null
   max_dias_prestamo: number
   alta_gama: boolean
+  es_notebook: boolean
   imagen_url: string | null
   video_url: string | null
   reglas_cuidado: string[]
-  unidades: UnidadFisicaDTO[]
   // computed_field del backend
   cantidad_total: number
   cantidad_disponible: number
   en_mantenimiento: boolean
 }
+
+/** Vista de administradores (SPEC-04 §5.1): incluye unidades y baja lógica. */
+export interface EquipamientoDTO extends EquipamientoBaseDTO {
+  activo: boolean
+  unidades: UnidadFisicaDTO[]
+}
+
+/** Vista de estudiantes y docentes (SPEC-04 RN-I7): sin unidades ni series. */
+export interface EquipamientoPublicoDTO extends EquipamientoBaseDTO {
+  locker: number | null
+}
+
+export type EquipamientoCatalogoDTO = EquipamientoDTO | EquipamientoPublicoDTO
 
 export interface EquipamientoCreateDTO {
   codigo: string
@@ -63,13 +82,26 @@ export interface EquipamientoCreateDTO {
   descripcion?: string | null
   max_dias_prestamo?: number
   alta_gama?: boolean
+  es_notebook?: boolean
   imagen_url?: string | null
   video_url?: string | null
   reglas_cuidado?: string[]
   unidades?: UnidadFisicaCreateDTO[]
 }
 
+// `codigo` es inmutable (SPEC-04 §5.3).
+export type EquipamientoUpdateDTO = Partial<Omit<EquipamientoCreateDTO, "codigo" | "unidades">>
+
 // ─── View models de UI (derivados de los DTOs en services/mappers.ts) ─────────
+export interface Unidad {
+  id: number
+  serie: string
+  codigoInventario: string
+  sede: Sede
+  locker: number | null
+  estado: EstadoUnidad
+}
+
 export interface Equipment {
   id: number
   name: string
@@ -81,13 +113,21 @@ export interface Equipment {
   maxDays: number
   code: string
   brand: string
+  model: string
   quantity: number
   available_count: number
   altaGama?: boolean
+  esNotebook: boolean
+  /** `false` si el ítem fue dado de baja lógica (sólo lo ven los administradores). */
+  activo: boolean
   sede?: Sede
   locker?: number
+  /** Lockers distintos de las unidades activas, ordenados (vacío si no hay dato). */
+  lockers: number[]
   careRules?: string[]
   videoUrl?: string
+  /** Sólo en la vista de administradores. */
+  unidades?: Unidad[]
 }
 
 export interface Category {
