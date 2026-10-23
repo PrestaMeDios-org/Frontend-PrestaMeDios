@@ -3,6 +3,7 @@ import { C_LIGHT, C_DARK, ThemeCtx, useC } from "./theme"
 import type { Screen } from "./types"
 import { MainLayout } from "./components/layout/MainLayout"
 import { CatalogPage } from "./features/inventory/pages/CatalogPage"
+import { StockPage } from "./features/inventory/pages/StockPage"
 import { SpacesPage } from "./features/spaces/pages/SpacesPage"
 import { AuthProvider, SedeProvider, useAuth, useSede, useUsuario } from "./features/auth/AuthContext"
 import { esAdmin, iniciales, ROL_LABEL, uiRole } from "./features/auth/roles"
@@ -131,6 +132,7 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
       onHelp={() => {}}
     >
       {visible === "catalog" && <CatalogPage role={role} userSede={sedeVista ?? undefined} />}
+      {visible === "admin-stock" && <StockPage />}
       {visible === "spaces" && <SpacesPage key={sedeVista ?? "ambas"} role={role} />}
       {visible === "profile" && <ProfilePage />}
       {visible === "users" && <UsersPage />}
@@ -140,7 +142,7 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
         Módulos en desarrollo por el equipo (loans, novedades, etc.): se
         renderizan aquí según `screen`, siguiendo la misma estructura.
       */}
-      {!["catalog", "spaces", "profile", "users", "parameters"].includes(visible) && (
+      {!["catalog", "admin-stock", "spaces", "profile", "users", "parameters"].includes(visible) && (
         <div
           style={{
             flex: 1,

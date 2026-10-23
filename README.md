@@ -88,7 +88,7 @@ src/
     ├── auth/                   # sesión, login, registro, cambio de contraseña (USR-01, USR-05)
     ├── users/                  # mi perfil y gestión de usuarios (USR-03, USR-04)
     ├── config/                 # panel de parámetros globales (GLO-03)
-    ├── inventory/              # catálogo de equipamiento (PRE-01, PRE-02)
+    ├── inventory/              # catálogo y control de stock (PRE-01, PRE-02, PRE-12, PRE-14, PRE-19)
     ├── spaces/                 # calendario y reservas de espacios (RES-01…RES-05)
     └── loans/                  # préstamos (pendiente)
         ├── components/
@@ -102,7 +102,7 @@ src/
 | `auth` | Login, registro, sesión persistente en la pestaña y cambio obligatorio de contraseña |
 | `users` | Mi perfil; bandeja de aprobación, directorio, alta y edición de cuentas |
 | `config` | Panel de parámetros con control de versión e historial |
-| `inventory` | Catálogo con filtros (datos de ejemplo; cliente de API autenticado disponible) |
+| `inventory` | Conectado a la API: catálogo con búsqueda y filtros; para administradores, tabla de stock ordenable (`/admin-stock`) con unidades, estados (mantenimiento, baja), alta, edición y baja lógica. Estudiantes y docentes reciben una vista reducida. Pendiente (Fase B): disponibilidad por fechas e historial por unidad |
 | `spaces` | Calendario conectado a la API: reservas propias, aprobación y bloqueos |
 | `loans` | Pendiente |
 

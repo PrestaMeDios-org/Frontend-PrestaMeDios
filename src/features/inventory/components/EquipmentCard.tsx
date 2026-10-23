@@ -21,7 +21,7 @@ export function EquipmentCard({
   onDelete?: (id: number) => void
 }) {
   const C = useC()
-  const canBook = (e: Equipment) => e.available && !e.maintenance
+  const canBook = (e: Equipment) => e.activo && e.available && !e.maintenance
   return (
     <div
       onClick={() => {
@@ -50,17 +50,43 @@ export function EquipmentCard({
       }}
     >
       <div style={{ position: "relative" }}>
-        <img
-          src={eq.image}
-          alt={eq.name}
-          style={{
-            width: "100%",
-            height: 148,
-            objectFit: "cover",
-            display: "block",
-            filter: eq.maintenance ? "grayscale(40%)" : "none",
-          }}
-        />
+        {eq.image ? (
+          <img
+            src={eq.image}
+            alt={eq.name}
+            style={{
+              width: "100%",
+              height: 148,
+              objectFit: "cover",
+              display: "block",
+              filter: eq.maintenance || !eq.activo ? "grayscale(40%)" : "none",
+            }}
+          />
+        ) : (
+          <div
+            aria-hidden
+            style={{ width: "100%", height: 148, background: C.bg, display: "block" }}
+          />
+        )}
+        {!eq.activo && (
+          <div style={{ position: "absolute", left: 9, bottom: 9 }}>
+            <span
+              style={{
+                fontFamily: "'Outfit',sans-serif",
+                fontSize: 10.5,
+                fontWeight: 700,
+                color: "white",
+                background: "rgba(60,60,67,0.9)",
+                padding: "3px 10px",
+                borderRadius: 6,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+              }}
+            >
+              Dado de baja
+            </span>
+          </div>
+        )}
         {eq.maintenance && (
           <div
             style={{
@@ -103,6 +129,8 @@ export function EquipmentCard({
             }}
           >
             <button
+              title="Editar equipo"
+              aria-label={`Editar ${eq.name}`}
               onClick={(ev) => {
                 ev.stopPropagation()
                 onEdit?.(eq)
@@ -122,6 +150,8 @@ export function EquipmentCard({
               {Ico.edit}
             </button>
             <button
+              title={eq.activo ? "Dar de baja" : "Reactivar"}
+              aria-label={`${eq.activo ? "Dar de baja" : "Reactivar"} ${eq.name}`}
               onClick={(ev) => {
                 ev.stopPropagation()
                 onDelete?.(eq.id)
