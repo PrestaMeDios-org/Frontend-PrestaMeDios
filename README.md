@@ -4,7 +4,7 @@ Aplicación web del sistema de préstamos de equipamiento y reservas de espacios
 
 | | |
 | --- | --- |
-| **Requisitos (ERS IEEE 830)** | [`docs/ERS.md` en el repositorio del backend](https://github.com/PrestaMeDios-org/Backend-PrestaMeDios/blob/develop/docs/ERS.md) |
+| **Requisitos (ERS IEEE 830)** | [`docs/ERS.md` en el repositorio de documentación](https://github.com/PrestaMeDios-org/Docs-PrestaMeDios/blob/main/docs/ERS.md) |
 | **API** | [`Backend-PrestaMeDios`](https://github.com/PrestaMeDios-org/Backend-PrestaMeDios) · contrato en `http://localhost:8000/docs` |
 | **Stack** | React 19 · TypeScript 5 (strict) · Vite · Tailwind CSS 4 |
 
