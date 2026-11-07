@@ -5,6 +5,7 @@ import { useSede, useUsuario } from "../../auth/AuthContext"
 import { EquipmentCard } from "../components/EquipmentCard"
 import { EstadoEquipo } from "../components/EstadoEquipo"
 import { EquipmentFormModal } from "../components/EquipmentFormModal"
+import { EquipmentDetailModal } from "../components/EquipmentDetailModal"
 import { CatalogFilters } from "../components/CatalogFilters"
 import { useCatalogo } from "../hooks/useCatalogo"
 import { useGestion } from "../hooks/useGestion"
@@ -19,12 +20,10 @@ type Dialogo = { modo: "alta" | "edicion"; equipo?: Equipment } | null
 export function CatalogPage({
   role = "student",
   userSede,
-  onSelect,
   onAddToCart,
 }: {
   role?: Role
   userSede?: Sede
-  onSelect?: (e: Equipment) => void
   onAddToCart?: (e: Equipment) => void
 }) {
   const C = useC()
@@ -37,6 +36,7 @@ export function CatalogPage({
   const [filterSede, setFilterSede] = useState("")
   const [verBajas, setVerBajas] = useState(false)
   const [dialogo, setDialogo] = useState<Dialogo>(null)
+  const [detalle, setDetalle] = useState<Equipment | null>(null)
 
   // Sólo el SUPERADMIN puede pedir una sede; para el resto la fija el backend.
   const sede = puedeElegir ? ((filterSede || userSede) as Sede | undefined) : undefined
@@ -139,7 +139,7 @@ export function CatalogPage({
               key={eq.id}
               eq={eq}
               role={role}
-              onSelect={onSelect}
+              onSelect={setDetalle}
               onAddToCart={onAddToCart}
               onEdit={(e) => setDialogo({ modo: "edicion", equipo: e })}
               onDelete={(id) => {
@@ -162,7 +162,7 @@ export function CatalogPage({
           {filtered.map((eq, i) => (
             <button
               key={eq.id}
-              onClick={() => canBook(eq) && onSelect?.(eq)}
+              onClick={() => setDetalle(eq)}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -250,6 +250,15 @@ export function CatalogPage({
             setDialogo(null)
             recargar()
           }}
+        />
+      )}
+      {detalle && (
+        <EquipmentDetailModal
+          equipment={detalle}
+          role={role}
+          sede={sede}
+          onClose={() => setDetalle(null)}
+          onAddToCart={onAddToCart}
         />
       )}
     </div>

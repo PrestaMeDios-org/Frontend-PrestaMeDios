@@ -99,3 +99,15 @@ export const ponerEnMantenimiento = (unidadId: number) =>
 export const darDeBajaUnidad = (unidadId: number) => cambiarEstadoUnidad(unidadId, "baja")
 export const rehabilitarUnidad = (unidadId: number) =>
   cambiarEstadoUnidad(unidadId, "disponible")
+
+import type { DisponibilidadDTO } from "../types"
+
+export function obtenerDisponibilidad(
+  id: number,
+  params: { desde: string; hasta: string; sede?: any },
+  signal?: AbortSignal,
+): Promise<DisponibilidadDTO> {
+  const qs = new URLSearchParams({ desde: params.desde, hasta: params.hasta })
+  if (params.sede) qs.set("sede", String(params.sede))
+  return request(`/equipamiento/${id}/disponibilidad?${qs.toString()}`, { signal })
+}
