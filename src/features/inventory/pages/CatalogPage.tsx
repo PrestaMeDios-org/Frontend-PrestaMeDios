@@ -1,9 +1,9 @@
 import { useState } from "react"
 import { useC } from "../../../theme"
-import { StatusBadge } from "../../../components/ui/Badge"
 import { Alert } from "../../../components/ui/Form"
 import { useSede, useUsuario } from "../../auth/AuthContext"
 import { EquipmentCard } from "../components/EquipmentCard"
+import { EstadoEquipo } from "../components/EstadoEquipo"
 import { EquipmentFormModal } from "../components/EquipmentFormModal"
 import { CatalogFilters } from "../components/CatalogFilters"
 import { useCatalogo } from "../hooks/useCatalogo"
@@ -233,10 +233,7 @@ export function CatalogPage({
               >
                 {eq.available_count}/{eq.quantity} uds.
               </span>
-              <StatusBadge
-                available={eq.available}
-                maintenance={eq.maintenance}
-              />
+              <EstadoEquipo eq={eq} />
             </button>
           ))}
         </div>

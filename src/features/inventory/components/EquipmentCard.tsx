@@ -1,6 +1,6 @@
 import { useC } from "../../../theme"
 import { Ico } from "../../../components/ui/icons"
-import { StatusBadge } from "../../../components/ui/Badge"
+import { EstadoEquipo } from "./EstadoEquipo"
 import type { Equipment } from "../types"
 import type { Role } from "../../../types"
 
@@ -116,7 +116,7 @@ export function EquipmentCard({
           </div>
         )}
         <div style={{ position: "absolute", top: 9, right: 9 }}>
-          <StatusBadge available={eq.available} maintenance={eq.maintenance} />
+          <EstadoEquipo eq={eq} />
         </div>
         {role === "admin" && (
           <div
