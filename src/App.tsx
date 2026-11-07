@@ -13,6 +13,7 @@ import { ChangePasswordPage } from "./features/auth/pages/ChangePasswordForm"
 import { ProfilePage } from "./features/users/pages/ProfilePage"
 import { UsersPage } from "./features/users/pages/UsersPage"
 import { ParametersPage } from "./features/config/pages/ParametersPage"
+import { NewsPage } from "./features/notifications/pages/NewsPage"
 
 const TITLES: Record<Screen, { title: string; subtitle?: string }> = {
   catalog: {
@@ -137,12 +138,13 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
       {visible === "profile" && <ProfilePage />}
       {visible === "users" && <UsersPage />}
       {visible === "parameters" && <ParametersPage />}
+      {visible === "news" && <NewsPage />}
 
       {/*
         Módulos en desarrollo por el equipo (loans, novedades, etc.): se
         renderizan aquí según `screen`, siguiendo la misma estructura.
       */}
-      {!["catalog", "admin-stock", "spaces", "profile", "users", "parameters"].includes(visible) && (
+      {!["catalog", "admin-stock", "spaces", "profile", "users", "parameters", "news"].includes(visible) && (
         <div
           style={{
             flex: 1,
