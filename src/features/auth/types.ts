@@ -22,6 +22,8 @@ export interface UsuarioResumenDTO {
   sede: Sede | null
   estado: EstadoCuenta
   created_at: string
+  /** Foto de perfil vigente (USR-03); se descarga con `descargarArchivo`. */
+  foto_id: string | null
 }
 
 export interface UsuarioPublicoDTO extends UsuarioResumenDTO {
