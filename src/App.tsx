@@ -121,6 +121,7 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
         name: `${usuario.nombre} ${usuario.apellido}`,
         sub: `${ROL_LABEL[usuario.rol]} · ${usuario.sede ?? "Ambas sedes"}`,
         email: usuario.email,
+        fotoId: usuario.foto_id,
       }}
       sede={{ vista: sedeVista, puedeElegir, onChange: setSedeVista }}
       onLogout={() => logout()}
