@@ -135,3 +135,19 @@ export interface Category {
   label: string
   color: string
 }
+
+// --- Disponibilidad (SPEC-04 par 5.4) ---
+export interface DiaDisponibilidadDTO {
+  fecha: string
+  unidades_libres: number
+  disponible: boolean
+}
+
+export interface DisponibilidadDTO {
+  equipamiento_id: number
+  sede: any
+  desde: string
+  hasta: string
+  unidades_asignables: number
+  dias: DiaDisponibilidadDTO[]
+}
