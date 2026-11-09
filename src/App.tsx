@@ -9,6 +9,9 @@ import { AuthProvider, SedeProvider, useAuth, useSede, useUsuario } from "./feat
 import { esAdmin, iniciales, ROL_LABEL, uiRole } from "./features/auth/roles"
 import { LoginPage } from "./features/auth/pages/LoginPage"
 import { RegisterPage } from "./features/auth/pages/RegisterPage"
+import { RecoverPasswordPage } from "./features/auth/pages/RecoverPasswordPage"
+import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage"
+import { esRutaRestablecer, leerTokenDeRecuperacion, limpiarFragmento } from "./features/auth/recuperacion"
 import { ChangePasswordPage } from "./features/auth/pages/ChangePasswordForm"
 import { ProfilePage } from "./features/users/pages/ProfilePage"
 import { UsersPage } from "./features/users/pages/UsersPage"
@@ -79,17 +82,51 @@ export default function App() {
   )
 }
 
-/** Sin sesión → login/registro; con cambio obligatorio → cambio de contraseña; si no, la app. */
-function AuthGate({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void }) {
-  const { usuario, cargando } = useAuth()
-  const [registro, setRegistro] = useState(false)
+/**
+ * Enlace de recuperación (SPEC-03 RN-47), leído una sola vez al cargar el módulo y quitado
+ * de la barra de direcciones: `undefined` si no es `#/restablecer`, `null` si el token no
+ * sirve. Fuera de React para que el doble render de `StrictMode` no lo pierda.
+ */
+function leerEnlaceDeRecuperacion(): string | null | undefined {
+  const { hash } = window.location
+  if (!esRutaRestablecer(hash)) return undefined
+  const token = leerTokenDeRecuperacion(hash)
+  limpiarFragmento()
+  return token
+}
+const ENLACE_RECUPERACION = typeof window !== "undefined" ? leerEnlaceDeRecuperacion() : undefined
 
+type PantallaPublica = "login" | "registro" | "recuperar" | "restablecer"
+
+/** Sin sesión → pantallas públicas; con cambio obligatorio → cambio de contraseña; si no, la app. */
+function AuthGate({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void }) {
+  const { usuario, cargando, logout } = useAuth()
+  const [publica, setPublica] = useState<PantallaPublica>(
+    ENLACE_RECUPERACION !== undefined ? "restablecer" : "login",
+  )
+
+  // El enlace del correo se muestra fuera del layout, haya o no sesión abierta (SPEC-03 §5.5).
+  if (publica === "restablecer") {
+    return (
+      <ResetPasswordPage
+        token={ENLACE_RECUPERACION ?? null}
+        onListo={(aviso) => {
+          logout(aviso) // el backend cerró todas las sesiones (RN-52)
+          setPublica("login")
+        }}
+        onPedirOtro={() => setPublica("recuperar")}
+      />
+    )
+  }
   if (cargando) return <Cargando />
   if (!usuario) {
-    return registro ? (
-      <RegisterPage onVolver={() => setRegistro(false)} />
-    ) : (
-      <LoginPage onRegistrarse={() => setRegistro(true)} />
+    if (publica === "registro") return <RegisterPage onVolver={() => setPublica("login")} />
+    if (publica === "recuperar") return <RecoverPasswordPage onVolver={() => setPublica("login")} />
+    return (
+      <LoginPage
+        onRegistrarse={() => setPublica("registro")}
+        onOlvidoPassword={() => setPublica("recuperar")}
+      />
     )
   }
   if (usuario.debe_cambiar_password) return <ChangePasswordPage />

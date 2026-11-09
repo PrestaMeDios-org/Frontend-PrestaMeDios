@@ -14,7 +14,13 @@ const TITULO_POR_CODIGO: Record<string, string> = {
   CREDENCIALES_INVALIDAS: "No pudimos iniciar sesión",
 }
 
-export function LoginPage({ onRegistrarse }: { onRegistrarse: () => void }) {
+export function LoginPage({
+  onRegistrarse,
+  onOlvidoPassword,
+}: {
+  onRegistrarse: () => void
+  onOlvidoPassword: () => void
+}) {
   const { login, aviso } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -60,6 +66,9 @@ export function LoginPage({ onRegistrarse }: { onRegistrarse: () => void }) {
           onChange={setPassword}
           autoComplete="current-password"
         />
+        <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, textAlign: "right", marginTop: -6 }}>
+          <LinkButton onClick={onOlvidoPassword}>¿Olvidaste tu contraseña?</LinkButton>
+        </div>
         <Button type="submit" disabled={enviando}>
           {enviando ? "Ingresando…" : "Ingresar"}
         </Button>

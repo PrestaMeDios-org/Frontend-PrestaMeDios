@@ -26,3 +26,17 @@ export const actualizarMe = (datos: PerfilUpdateDTO) =>
 
 export const cambiarPassword = (datos: CambioPasswordDTO) =>
   apiRequest<TokenResponseDTO>(`${BASE}/me/password`, { method: "POST", json: datos })
+
+// ─── Recuperación de contraseña (SPEC-03 §5.3, USR-02) ───────────────────────
+// Públicos: no llevan token. La respuesta del pedido es siempre neutra (RN-44).
+
+export const solicitarRecuperacion = (email: string) =>
+  apiRequest<{ detail: string }>(`${BASE}/recuperacion`, { method: "POST", json: { email }, auth: false })
+
+export const confirmarRecuperacion = (token: string, password_nueva: string) =>
+  apiRequest<{ detail: string }>(`${BASE}/recuperacion/confirmar`, {
+    method: "POST",
+    json: { token, password_nueva },
+    auth: false,
+  })
+
