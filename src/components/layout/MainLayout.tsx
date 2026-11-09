@@ -28,7 +28,7 @@ export function MainLayout({
   role: Role
   screen: Screen
   onNavigate: (s: Screen) => void
-  user: { initials: string; name: string; sub: string; email: string }
+  user: { initials: string; name: string; sub: string; email: string; fotoId?: string | null }
   sede: { vista: Sede | null; puedeElegir: boolean; onChange: (s: Sede | null) => void }
   onLogout: () => void
   title: string

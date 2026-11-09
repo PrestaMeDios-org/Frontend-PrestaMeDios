@@ -1,11 +1,14 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
+import { Avatar } from "../../../components/ui/Avatar"
 import { Button } from "../../../components/ui/Button"
 import { Alert, Card, Grid, TextField } from "../../../components/ui/Form"
 import { ApiError, mensajeDeError } from "../../../lib/api"
 import { useAuth, useUsuario } from "../../auth/AuthContext"
 import { actualizarMe } from "../../auth/authApi"
 import { ChangePasswordForm } from "../../auth/pages/ChangePasswordForm"
-import { ESTADO_LABEL, ROL_LABEL } from "../../auth/roles"
+import { ESTADO_LABEL, iniciales, ROL_LABEL } from "../../auth/roles"
+import { FOTO_ACCEPT, FOTO_MAX_MB, validarFoto } from "../services/foto"
+import { quitarFoto, subirFoto } from "../services/usersApi"
 
 /** Mi perfil (USR-03, SPEC-02 UC-10/UC-11): datos protegidos en sólo lectura. */
 export function ProfilePage() {
@@ -45,6 +48,8 @@ export function ProfilePage() {
 
   return (
     <div style={{ padding: "24px 28px", flex: 1, overflowY: "auto", display: "grid", gap: 18, maxWidth: 900 }}>
+      <FotoDePerfil />
+
       <Card title="Datos de la cuenta">
         <Grid>
           <TextField label="Nombre" value={usuario.nombre} disabled />
@@ -94,5 +99,66 @@ export function ProfilePage() {
         </div>
       </Card>
     </div>
+  )
+}
+
+/** Foto de perfil (USR-03, SPEC-03 §6.6): subir, reemplazar y quitar. */
+function FotoDePerfil() {
+  const usuario = useUsuario()
+  const { setUsuario } = useAuth()
+  const input = useRef<HTMLInputElement>(null)
+  const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null)
+  const [ocupado, setOcupado] = useState(false)
+
+  const ejecutar = async (accion: () => Promise<typeof usuario>, ok: string) => {
+    setOcupado(true)
+    setMensaje(null)
+    try {
+      setUsuario(await accion())
+      setMensaje({ tipo: "ok", texto: ok })
+    } catch (err) {
+      setMensaje({ tipo: "error", texto: mensajeDeError(err, "No se pudo actualizar la foto.") })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  const elegir = (archivo: File | undefined) => {
+    if (input.current) input.current.value = ""
+    if (!archivo) return
+    const error = validarFoto(archivo)
+    if (error) return setMensaje({ tipo: "error", texto: error })
+    void ejecutar(() => subirFoto(archivo), "Foto actualizada.")
+  }
+
+  return (
+    <Card title="Foto de perfil">
+      {mensaje && <Alert tipo={mensaje.tipo}>{mensaje.texto}</Alert>}
+      <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+        <Avatar fotoId={usuario.foto_id} initials={iniciales(usuario.nombre, usuario.apellido)} size={88} radius={44} />
+        <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button onClick={() => input.current?.click()} disabled={ocupado}>
+              {ocupado ? "Guardando…" : usuario.foto_id ? "Cambiar foto" : "Subir foto"}
+            </Button>
+            {usuario.foto_id && (
+              <Button variant="ghost" onClick={() => ejecutar(quitarFoto, "Foto quitada.")} disabled={ocupado}>
+                Quitar foto
+              </Button>
+            )}
+          </div>
+          <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, opacity: 0.6 }}>
+            JPEG, PNG o WebP de hasta {FOTO_MAX_MB} MB. Se guarda recortada a 512 px y sin datos de ubicación.
+          </span>
+        </div>
+        <input
+          ref={input}
+          type="file"
+          accept={FOTO_ACCEPT}
+          hidden
+          onChange={(e) => elegir(e.target.files?.[0])}
+        />
+      </div>
+    </Card>
   )
 }

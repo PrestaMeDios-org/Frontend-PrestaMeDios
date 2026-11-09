@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useC } from "../../theme"
 import { Ico } from "../ui/icons"
+import { Avatar } from "../ui/Avatar"
 import type { CartType } from "../../types"
 import type { Sede } from "../../features/auth/types"
 
@@ -61,7 +62,7 @@ export function Navbar({
   cartType,
   onCartOpen,
 }: {
-  user: { name: string; email: string }
+  user: { name: string; email: string; initials: string; fotoId?: string | null }
   /** Sede vista (GLO-01): elegible sólo para el Superadministrador. */
   sede: { vista: Sede | null; puedeElegir: boolean; onChange: (s: Sede | null) => void }
   onLogout: () => void
@@ -489,21 +490,23 @@ export function Navbar({
         <div ref={menuRef} style={{ position: "relative" }}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
+            title="Mi cuenta"
             style={{
               width: 36,
               height: 36,
+              padding: 0,
               borderRadius: 9,
-              border: `1px solid ${C.border}`,
-              background: userMenuOpen ? C.crimsonLight : C.bg,
+              border: `1px solid ${userMenuOpen ? C.crimson : C.border}`,
+              background: C.bg,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: "pointer",
-              color: userMenuOpen ? C.crimson : C.textMuted,
+              overflow: "hidden",
               transition: "all 0.12s",
             }}
           >
-            {Ico.user}
+            <Avatar fotoId={user.fotoId} initials={user.initials} size={34} radius={8} />
           </button>
           {userMenuOpen && (
             <div
