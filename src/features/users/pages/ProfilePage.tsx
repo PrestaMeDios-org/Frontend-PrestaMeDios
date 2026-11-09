@@ -4,7 +4,7 @@ import { Button } from "../../../components/ui/Button"
 import { Alert, Card, Grid, TextField } from "../../../components/ui/Form"
 import { ApiError, mensajeDeError } from "../../../lib/api"
 import { useAuth, useUsuario } from "../../auth/AuthContext"
-import { actualizarMe } from "../../auth/authApi"
+import { actualizarMe, cerrarTodasLasSesiones } from "../../auth/authApi"
 import { ChangePasswordForm } from "../../auth/pages/ChangePasswordForm"
 import { ESTADO_LABEL, iniciales, ROL_LABEL } from "../../auth/roles"
 import { FOTO_ACCEPT, FOTO_MAX_MB, validarFoto } from "../services/foto"
@@ -98,7 +98,44 @@ export function ProfilePage() {
           <ChangePasswordForm />
         </div>
       </Card>
+
+      <CerrarSesiones />
     </div>
+  )
+}
+
+/** "Cerrar todas mis sesiones" (SPEC-03 RN-69, D-14): esta pestaña sigue con un token nuevo. */
+function CerrarSesiones() {
+  const { aplicarToken } = useAuth()
+  const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null)
+  const [ocupado, setOcupado] = useState(false)
+
+  const cerrar = async () => {
+    if (!window.confirm("Se van a cerrar tus sesiones en todas las computadoras. Esta pestaña sigue abierta. ¿Continuar?")) return
+    setOcupado(true)
+    setMensaje(null)
+    try {
+      aplicarToken(await cerrarTodasLasSesiones())
+      setMensaje({ tipo: "ok", texto: "Cerraste las sesiones abiertas en otras computadoras." })
+    } catch (err) {
+      setMensaje({ tipo: "error", texto: mensajeDeError(err, "No se pudieron cerrar las sesiones.") })
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  return (
+    <Card title="Sesiones">
+      {mensaje && <Alert tipo={mensaje.tipo}>{mensaje.texto}</Alert>}
+      <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, opacity: 0.75 }}>
+        Si dejaste la sesión abierta en una computadora compartida, podés cerrarla desde acá.
+      </span>
+      <div>
+        <Button variant="danger" onClick={cerrar} disabled={ocupado}>
+          {ocupado ? "Cerrando…" : "Cerrar todas mis sesiones"}
+        </Button>
+      </div>
+    </Card>
   )
 }
 
