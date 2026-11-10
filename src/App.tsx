@@ -17,6 +17,8 @@ import { ProfilePage } from "./features/users/pages/ProfilePage"
 import { UsersPage } from "./features/users/pages/UsersPage"
 import { ParametersPage } from "./features/config/pages/ParametersPage"
 import { NewsPage } from "./features/notifications/pages/NewsPage"
+import { CarritoProvider, useCarrito } from "./features/loans/CarritoContext"
+import { CarritoPanel } from "./features/loans/components/CarritoPanel"
 
 const TITLES: Record<Screen, { title: string; subtitle?: string }> = {
   catalog: {
@@ -133,7 +135,10 @@ function AuthGate({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => v
   if (usuario.debe_cambiar_password) return <ChangePasswordPage />
   return (
     <SedeProvider>
-      <Shell dark={dark} onDarkToggle={onDarkToggle} />
+      {/* `key`: otro usuario empieza con el carrito vacío. */}
+      <CarritoProvider key={usuario.id}>
+        <Shell dark={dark} onDarkToggle={onDarkToggle} />
+      </CarritoProvider>
     </SedeProvider>
   )
 }
@@ -145,6 +150,10 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
   const { sedeVista, puedeElegir, setSedeVista } = useSede()
   const role = uiRole(usuario.rol)
   const [screen, setScreen] = useState<Screen>("catalog")
+  const carrito = useCarrito()
+  const [carritoAbierto, setCarritoAbierto] = useState(false)
+  // Solo estudiantes y docentes piden equipos (SPEC-05 PRE-03).
+  const puedePedir = role === "student" || role === "teacher"
   const visible: Screen = SOLO_ADMIN.includes(screen) && !esAdmin(usuario.rol) ? "catalog" : screen
 
   const { title, subtitle } = TITLES[visible]
@@ -169,8 +178,18 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
       onDarkToggle={onDarkToggle}
       onProfile={() => setScreen("profile")}
       onHelp={() => {}}
+      cartCount={puedePedir ? carrito.total : 0}
+      cartType={carrito.tipo}
+      onCartOpen={() => setCarritoAbierto(true)}
     >
-      {visible === "catalog" && <CatalogPage role={role} userSede={sedeVista ?? undefined} />}
+      {visible === "catalog" && (
+        <CatalogPage
+          role={role}
+          userSede={sedeVista ?? undefined}
+          onAddToCart={puedePedir ? carrito.agregar : undefined}
+        />
+      )}
+      {carritoAbierto && <CarritoPanel onClose={() => setCarritoAbierto(false)} />}
       {visible === "admin-stock" && <StockPage />}
       {visible === "spaces" && <SpacesPage key={sedeVista ?? "ambas"} role={role} />}
       {visible === "profile" && <ProfilePage />}
