@@ -1,6 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { onSessionExpired, tokenStore } from "../../lib/api"
 import * as authApi from "./authApi"
+import {
+  crearRegistroActividad,
+  debeRenovar,
+  INTERVALO_REVISION_MS,
+  leerTiemposToken,
+  vencido,
+} from "./renovacion"
 import type { Sede, TokenResponseDTO, UsuarioPublicoDTO } from "./types"
 
 // ─── Sesión (SPEC-02 §6.1) ────────────────────────────────────────────────────
@@ -11,7 +18,7 @@ interface AuthValue {
   aviso: string | null
   login: (email: string, password: string) => Promise<void>
   logout: (aviso?: string) => void
-  /** Aplica una respuesta con token nuevo (cambio de contraseña). */
+  /** Aplica una respuesta con token nuevo (cambio de contraseña, renovación, cerrar sesiones). */
   aplicarToken: (respuesta: TokenResponseDTO) => void
   setUsuario: (u: UsuarioPublicoDTO) => void
 }
@@ -48,7 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ? "Tu sesión expiró. Iniciá sesión nuevamente."
             : error.code === "TOKEN_REVOCADO"
               ? "Tu sesión fue cerrada por un cambio en tu cuenta. Iniciá sesión nuevamente."
-              : "Tu sesión ya no es válida. Iniciá sesión nuevamente.",
+              : error.code === "TOKEN_SESION_MAXIMA"
+                ? "Pasó el tiempo máximo de la sesión. Iniciá sesión nuevamente."
+                : "Tu sesión ya no es válida. Iniciá sesión nuevamente.",
         ),
       ),
     [logout],
@@ -59,6 +68,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(respuesta.usuario)
     setAviso(null)
   }, [])
+
+  // Renovación deslizante (SPEC-03 §7, RN-70): con actividad reciente, el token se
+  // cambia por uno nuevo poco antes de vencer; sin actividad, vence y se vuelve al login.
+  const haySesion = usuario !== null
+  useEffect(() => {
+    if (!haySesion) return
+    const actividad = crearRegistroActividad()
+    const dejarDeEscuchar = actividad.escuchar(window)
+    let renovando = false
+
+    const revisar = () => {
+      const token = tokenStore.get()
+      const tiempos = token ? leerTiemposToken(token) : null
+      if (!tiempos || renovando) return
+      const ahora = Date.now()
+      if (vencido(tiempos, ahora)) {
+        logout("Tu sesión expiró por inactividad. Iniciá sesión nuevamente.")
+        return
+      }
+      if (!debeRenovar(tiempos, actividad.ultima(), ahora)) return
+      renovando = true
+      authApi
+        .renovarSesion()
+        // Si mientras tanto se cerró la sesión o cambió el token, no se pisa.
+        .then((respuesta) => tokenStore.get() === token && aplicarToken(respuesta))
+        // Un 401 TOKEN_* ya cierra la sesión (onSessionExpired); un error de red se
+        // reintenta en la próxima revisión.
+        .catch(() => undefined)
+        .finally(() => {
+          renovando = false
+        })
+    }
+
+    const intervalo = window.setInterval(revisar, INTERVALO_REVISION_MS)
+    // Al volver a la pestaña: los navegadores demoran los temporizadores en segundo plano.
+    document.addEventListener("visibilitychange", revisar)
+    return () => {
+      window.clearInterval(intervalo)
+      document.removeEventListener("visibilitychange", revisar)
+      dejarDeEscuchar()
+    }
+  }, [haySesion, logout, aplicarToken])
 
   const login = useCallback(
     async (email: string, password: string) => {
