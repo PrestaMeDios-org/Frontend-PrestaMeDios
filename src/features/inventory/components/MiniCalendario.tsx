@@ -1,15 +1,16 @@
 import { useMemo, useState } from "react"
-import type { DisponibilidadDTO } from "../types"
-import { aIso, puedeIrA, rangoDelMes, ventana } from "../services/calendario"
+import type { Sede } from "../types"
+import { aIso, hoyLab, puedeIrA, rangoDelMes, ventana } from "../services/calendario"
 import { useDisponibilidad } from "../hooks/useDisponibilidad"
 
 interface Props {
   equipamientoId: number
-  sede?: string
+  sede?: Sede
+  /** Por defecto, hoy en la zona del laboratorio. */
   hoy?: Date
 }
 
-export function MiniCalendario({ equipamientoId, sede, hoy = new Date() }: Props) {
+export function MiniCalendario({ equipamientoId, sede, hoy = hoyLab() }: Props) {
   const [mes, setMes] = useState(new Date(hoy.getFullYear(), hoy.getMonth(), 1))
   const rango = rangoDelMes(mes, hoy)
   const { data, cargando, error } = useDisponibilidad(

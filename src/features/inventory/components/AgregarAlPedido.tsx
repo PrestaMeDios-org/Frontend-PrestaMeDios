@@ -1,20 +1,23 @@
 import { useState } from "react"
+import type { Role } from "../../../types"
 import type { Equipment } from "../types"
-import { motivoNoAgregable } from "../services/carrito"
+import { motivoNoAgregable, muestraBotonAgregar } from "../services/carrito"
 
 interface Props {
   equipment: Equipment
-  role: string
+  role: Role
   onAddToCart?: (eq: Equipment) => void
 }
 
 export function AgregarAlPedido({ equipment, role, onAddToCart }: Props) {
   const [agregado, setAgregado] = useState(false)
-  const motivo = motivoNoAgregable(equipment, role as any)
-  const disabled = motivo !== null || !onAddToCart
+  // Sólo estudiantes y docentes, y sólo si la página recibió `onAddToCart` (INV-33).
+  if (!onAddToCart || !muestraBotonAgregar(role, true)) return null
+  const motivo = motivoNoAgregable(equipment)
+  const disabled = motivo !== null
 
   const handleClick = () => {
-    if (disabled || !onAddToCart) return
+    if (disabled) return
     onAddToCart(equipment)
     setAgregado(true)
     setTimeout(() => setAgregado(false), 2000)
