@@ -532,8 +532,15 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
         <CalendarGrid
           reservas={delEspacio}
           bloqueos={delEspacioBloqueos}
+          horario={horario}
           selectedFecha={fecha}
-          onSelectFecha={setFecha}
+          onSelectFecha={(iso) => {
+            setFecha(iso)
+            if (esAdmin) {
+              setBloFechaInicio(iso)
+              setBloFechaFin(iso)
+            }
+          }}
           onMonthChange={setMes}
         />
         <div
@@ -870,6 +877,9 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               >
                 {bloAmbasSedes ? "Bloquear todos" : "Bloquear"}
               </button>
+            </div>
+            <div style={{ marginTop: 6, color: C.textFaint, fontFamily: "'Inter',sans-serif", fontSize: 12 }}>
+              Seleccioná una fecha en el calendario para completar el inicio y fin del bloqueo.
             </div>
             <div style={{ marginTop: 16 }}>
               <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, color: C.text, marginBottom: 8 }}>
