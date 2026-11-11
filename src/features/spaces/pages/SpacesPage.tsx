@@ -56,6 +56,8 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [fecha, setFecha] = useState<string | null>(null)
   const [horariosSeleccionados, setHorariosSeleccionados] = useState<string[]>([])
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
+  const [reservaParaCancelar, setReservaParaCancelar] = useState<Reserva | null>(null)
+  const [cancelandoReserva, setCancelandoReserva] = useState(false)
   const [solicitandoReservas, setSolicitandoReservas] = useState(false)
   const [mes, setMes] = useState(() => {
     const hoy = new Date()
@@ -217,13 +219,20 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     setMensajeExito(`Se enviaron ${solicitudesEnviadas} solicitudes de reserva.`)
   }
 
-  const cancelar = async (id: number) => {
+  const confirmarCancelacion = async () => {
+    if (!reservaParaCancelar) return
+
     try {
-      await updateReservaEstado(id, "Cancelada")
+      setCancelandoReserva(true)
+      setError(null)
+      await updateReservaEstado(reservaParaCancelar.id, "Cancelada")
+      setReservaParaCancelar(null)
       cargarMisReservas()
       refrescarMes()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo cancelar")
+      setError(mensajeDeError(e, "No se pudo cancelar la reserva"))
+    } finally {
+      setCancelandoReserva(false)
     }
   }
 
@@ -601,7 +610,10 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               <strong style={{ color: r.estado === "Aprobada" ? C.available : C.pending }}>{r.estado}</strong>
             </span>
             <button
-              onClick={() => cancelar(r.id)}
+              onClick={() => {
+                setError(null)
+                setReservaParaCancelar(r)
+              }}
               style={{
                 padding: "5px 12px",
                 borderRadius: 8,
@@ -840,6 +852,73 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
           </div>
         </div>
       )}
+      {reservaParaCancelar && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            background: "rgba(0,0,0,0.48)",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirmar-cancelacion-titulo"
+            style={{
+              width: "100%",
+              maxWidth: 460,
+              background: C.card,
+              border: `1px solid ${C.border}`,
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.24)",
+            }}
+          >
+            <h2
+              id="confirmar-cancelacion-titulo"
+              style={{ margin: "0 0 8px", fontFamily: "'Outfit',sans-serif", fontSize: 20, color: C.text }}
+            >
+              ¿Cancelar esta reserva?
+            </h2>
+            <p style={{ margin: "0 0 16px", color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              Si confirmás, se cancelará también la aprobación del administrador.
+            </p>
+            <div style={{ padding: 14, borderRadius: 10, background: C.occupiedBg, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              <strong>{nombreEspacio(reservaParaCancelar.idEspacio)}</strong>
+              <div style={{ marginTop: 4 }}>
+                {formatearFecha(reservaParaCancelar.fecha)} · {reservaParaCancelar.horaInicio}–{reservaParaCancelar.horaFin}
+              </div>
+              <div style={{ marginTop: 4 }}>Estado: {reservaParaCancelar.estado}</div>
+            </div>
+            {error && (
+              <div role="alert" style={{ marginTop: 14, color: C.crimson, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                {error}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setReservaParaCancelar(null)
+                  setError(null)
+                }}
+                disabled={cancelandoReserva}
+              >
+                No, volver
+              </Button>
+              <Button onClick={confirmarCancelacion} variant="danger" disabled={cancelandoReserva}>
+                {cancelandoReserva ? "Cancelando..." : "Sí, cancelar reserva"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
