@@ -155,3 +155,7 @@ export async function createBloqueo(payload: {
 }): Promise<Bloqueo> {
   return mapBloqueo(await request<BloqueoApi>("/bloqueos", { method: "POST", json: payload }))
 }
+
+export async function deleteBloqueo(idBloqueo: number): Promise<void> {
+  await request<void>(`/bloqueos/${idBloqueo}`, { method: "DELETE" })
+}

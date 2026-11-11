@@ -29,6 +29,7 @@ export function CalendarGrid({
   const C = useC()
   const hoy = new Date()
   const [view, setView] = useState(new Date(hoy.getFullYear(), hoy.getMonth(), 1))
+  const [fechaConMotivoVisible, setFechaConMotivoVisible] = useState<string | null>(null)
 
   const maxView = new Date(hoy.getFullYear(), hoy.getMonth() + 4, 1)
   const canPrev = view > new Date(hoy.getFullYear(), hoy.getMonth(), 1)
@@ -136,32 +137,81 @@ export function CalendarGrid({
           const ocupado = ocupadoEl(iso)
           const bloqueado = bloqueadoEl(iso)
           const pendiente = !ocupado && !bloqueado && pendienteEl(iso)
+          const detalleBloqueo = Array.from(
+            new Map(
+              bloqueos
+                .filter((b) => b.fechaInicio <= iso && b.fechaFin >= iso)
+                .map((b) => [b.id, b]),
+            ).values(),
+          )
+            .map((b) => `${b.motivo}${b.horaInicio ? ` (${b.horaInicio}–${b.horaFin})` : " (todo el día)"}`)
+            .join("\n")
+          const mostrarMotivo = fechaConMotivoVisible === iso && detalleBloqueo.length > 0
+          const tooltipId = `motivo-bloqueo-${iso}`
           return (
-            <button
+            <div
               key={iso}
-              disabled={past || bloqueado}
-              onClick={() => onSelectFecha(iso)}
-              style={{
-                padding: "8px 0",
-                borderRadius: 10,
-                border: selected ? `2px solid ${C.crimson}` : "1px solid transparent",
-                background: selected
-                  ? C.crimsonLight
-                  : bloqueado
-                    ? C.maintenanceBg
-                    : ocupado
-                      ? C.occupiedBg
-                      : pendiente
-                        ? C.pendingBg
-                        : "transparent",
-                color: past || bloqueado ? C.textFaint : C.text,
-                cursor: past || bloqueado ? "default" : "pointer",
-                fontFamily: "'Inter',sans-serif",
-                fontSize: 13,
-              }}
+              onMouseEnter={() => detalleBloqueo && setFechaConMotivoVisible(iso)}
+              onMouseLeave={() => setFechaConMotivoVisible(null)}
+              onFocus={() => detalleBloqueo && setFechaConMotivoVisible(iso)}
+              onBlur={() => setFechaConMotivoVisible(null)}
+              style={{ position: "relative", minWidth: 0 }}
             >
-              {d.getDate()}
-            </button>
+              <button
+                disabled={past || bloqueado}
+                aria-describedby={mostrarMotivo ? tooltipId : undefined}
+                onClick={() => onSelectFecha(iso)}
+                style={{
+                  width: "100%",
+                  padding: "8px 0",
+                  borderRadius: 10,
+                  border: selected ? `2px solid ${C.crimson}` : "1px solid transparent",
+                  background: selected
+                    ? C.crimsonLight
+                    : bloqueado
+                      ? C.maintenanceBg
+                      : ocupado
+                        ? C.occupiedBg
+                        : pendiente
+                          ? C.pendingBg
+                          : "transparent",
+                  color: past || bloqueado ? C.textFaint : C.text,
+                  cursor: past || bloqueado ? "default" : "pointer",
+                  fontFamily: "'Inter',sans-serif",
+                  fontSize: 13,
+                }}
+              >
+                {d.getDate()}
+              </button>
+              {mostrarMotivo && (
+                <span
+                  id={tooltipId}
+                  role="tooltip"
+                  style={{
+                    position: "absolute",
+                    zIndex: 10,
+                    top: "50%",
+                    left: "calc(100% + 6px)",
+                    transform: "translateY(-50%)",
+                    width: "max-content",
+                    maxWidth: 220,
+                    padding: "7px 10px",
+                    borderRadius: 7,
+                    background: C.text,
+                    color: C.card,
+                    boxShadow: "0 3px 12px rgba(0,0,0,0.2)",
+                    fontFamily: "'Inter',sans-serif",
+                    fontSize: 12,
+                    lineHeight: 1.4,
+                    textAlign: "left",
+                    whiteSpace: "pre-line",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {detalleBloqueo}
+                </span>
+              )}
+            </div>
           )
         })}
       </div>

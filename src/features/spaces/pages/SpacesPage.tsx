@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useC } from "../../../theme"
 import {
   createBloqueo,
+  deleteBloqueo,
   createEspacio,
   createReserva,
   getDisponibilidad,
@@ -294,6 +295,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const espaciosPorSede = espacios.filter((e) => e.sede === (selectedSede ?? espacioActual?.sede))
   const delEspacio = reservas.filter((r) => r.idEspacio === idEspacio)
   const delEspacioBloqueos = bloqueos.filter((b) => b.idEspacio === idEspacio)
+  const bloqueosUnicos = Array.from(new Map(delEspacioBloqueos.map((b) => [b.id, b])).values())
 
   const slotBloqueado = (slot: string) =>
     delEspacioBloqueos.some(
@@ -329,6 +331,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [bloHoraInicio, setBloHoraInicio] = useState(horario.apertura)
   const [bloHoraFin, setBloHoraFin] = useState(horario.cierre)
   const [bloMotivo, setBloMotivo] = useState("")
+  const [bloqueoEliminando, setBloqueoEliminando] = useState<number | null>(null)
 
   const crearBloqueo = async () => {
     if (idEspacio == null || !bloFechaInicio || !bloFechaFin || !bloMotivo) return
@@ -348,6 +351,22 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
       refrescarMes()
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo crear el bloqueo")
+    }
+  }
+
+  const deshacerBloqueo = async (bloqueo: Bloqueo) => {
+    if (!window.confirm(`¿Deshacer el bloqueo "${bloqueo.motivo}"?`)) return
+
+    setBloqueoEliminando(bloqueo.id)
+    setError(null)
+    try {
+      await deleteBloqueo(bloqueo.id)
+      setBloqueos((actuales) => actuales.filter((b) => b.id !== bloqueo.id))
+      setMensajeExito("Se deshizo el bloqueo del espacio.")
+    } catch (e) {
+      setError(mensajeDeError(e, "No se pudo deshacer el bloqueo"))
+    } finally {
+      setBloqueoEliminando(null)
     }
   }
 
@@ -821,6 +840,47 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               >
                 Bloquear
               </button>
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, color: C.text, marginBottom: 8 }}>
+                Bloqueos de {espacioActual?.nombre ?? "este espacio"}
+              </div>
+              {bloqueosUnicos.length === 0 ? (
+                <div style={{ color: C.textFaint, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                  No hay bloqueos en el mes visible.
+                </div>
+              ) : (
+                bloqueosUnicos.map((bloqueo) => (
+                  <div
+                    key={bloqueo.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "8px 0",
+                      borderBottom: `1px solid ${C.borderLight}`,
+                      fontFamily: "'Inter',sans-serif",
+                      fontSize: 13,
+                      color: C.text,
+                    }}
+                  >
+                    <span>
+                      {formatearFecha(bloqueo.fechaInicio)}
+                      {bloqueo.fechaFin !== bloqueo.fechaInicio && ` – ${formatearFecha(bloqueo.fechaFin)}`}
+                      {bloqueo.horaInicio && ` · ${bloqueo.horaInicio}–${bloqueo.horaFin}`}
+                      {" · "}{bloqueo.motivo}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      onClick={() => deshacerBloqueo(bloqueo)}
+                      disabled={bloqueoEliminando !== null}
+                    >
+                      {bloqueoEliminando === bloqueo.id ? "Deshaciendo..." : "Deshacer"}
+                    </Button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </>
