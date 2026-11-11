@@ -45,6 +45,7 @@ export function Modal({
           width: "100%",
           maxWidth: ancho,
           background: C.card,
+          color: C.text,
           border: `1px solid ${C.border}`,
           borderRadius: 16,
           padding: 22,
