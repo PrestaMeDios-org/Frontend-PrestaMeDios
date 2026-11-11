@@ -1,3 +1,4 @@
+import { useArchivoUrl } from "../../lib/useArchivoUrl"
 import { useC } from "../../theme"
 import { Ico } from "../ui/icons"
 import type { Role, Screen } from "../../types"
@@ -15,7 +16,7 @@ export function Sidebar({
   onNavigate: (s: Screen) => void
   collapsed: boolean
   onToggle: () => void
-  user: { initials: string; name: string; sub: string }
+  user: { initials: string; name: string; sub: string; fotoId?: string | null }
 }) {
   const C = useC()
   const common = [
@@ -375,6 +376,8 @@ export function Sidebar({
   }
   const groups = groupedItems[role]
   const ui = user
+  // Foto de perfil (USR-03), igual que en la barra superior; sin foto, las iniciales.
+  const fotoUrl = useArchivoUrl(ui.fotoId)
   return (
     <aside
       style={{
@@ -589,18 +592,27 @@ export function Sidebar({
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
+            overflow: "hidden",
           }}
         >
-          <span
-            style={{
-              fontFamily: "'Outfit',sans-serif",
-              fontSize: 12,
-              fontWeight: 700,
-              color: "white",
-            }}
-          >
-            {ui.initials}
-          </span>
+          {fotoUrl ? (
+            <img
+              src={fotoUrl}
+              alt="Foto de perfil"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          ) : (
+            <span
+              style={{
+                fontFamily: "'Outfit',sans-serif",
+                fontSize: 12,
+                fontWeight: 700,
+                color: "white",
+              }}
+            >
+              {ui.initials}
+            </span>
+          )}
         </div>
         {!collapsed && (
           <div style={{ minWidth: 0 }}>
