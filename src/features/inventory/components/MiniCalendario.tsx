@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import type { Sede } from "../types"
-import { aIso, hoyLab, puedeIrA, rangoDelMes, ventana } from "../services/calendario"
+import { hoyLab } from "../../../lib/fechas"
+import { aIso, puedeIrA, rangoDelMes, ventana } from "../services/calendario"
 import { useDisponibilidad } from "../hooks/useDisponibilidad"
 
 interface Props {

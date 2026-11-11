@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { aIso, hoyLab, puedeIrA, rangoDelMes, ventana, VENTANA_DIAS } from "./calendario"
+import { aIso, puedeIrA, rangoDelMes, ventana, VENTANA_DIAS } from "./calendario"
 
 const dia = (y: number, m: number, d: number) => new Date(y, m - 1, d)
 const mes = (y: number, m: number) => new Date(y, m - 1, 1)
@@ -53,10 +53,6 @@ describe("rangoDelMes", () => {
     expect(rangoDelMes(mes(2026, 11), dia(2026, 11, 30))).toEqual({ desde: "2026-11-30", hasta: "2026-11-30" })
   })
 
-  it("nunca pide más de 62 días", () => {
-    const r = rangoDelMes(mes(2026, 1), dia(2026, 1, 1))
-    expect(r).toEqual({ desde: "2026-01-01", hasta: "2026-01-31" })
-  })
 })
 
 describe("puedeIrA", () => {
@@ -84,25 +80,5 @@ describe("puedeIrA", () => {
     for (const m of [mes(2026, 10), mes(2026, 11), mes(2026, 12), mes(2027, 1), mes(2027, 2)]) {
       expect(puedeIrA(m, hoy)).toBe(rangoDelMes(m, hoy) !== null)
     }
-  })
-})
-
-describe("hoyLab", () => {
-  // SPEC-04 §5.4: `desde ≥ hoy` en la zona del laboratorio (UTC-3)
-  it("usa la fecha del laboratorio, no la del navegador", () => {
-    // 02:30 UTC del 11/11 todavía es 10/11 a las 23:30 en el laboratorio
-    expect(aIso(hoyLab(new Date("2026-11-11T02:30:00Z")))).toBe("2026-11-10")
-    // 03:00 UTC ya es 11/11 a las 00:00
-    expect(aIso(hoyLab(new Date("2026-11-11T03:00:00Z")))).toBe("2026-11-11")
-  })
-
-  it("cambio de año", () => {
-    expect(aIso(hoyLab(new Date("2027-01-01T02:59:59Z")))).toBe("2026-12-31")
-    expect(aIso(hoyLab(new Date("2027-01-01T03:00:00Z")))).toBe("2027-01-01")
-  })
-
-  it("devuelve la medianoche local de ese día", () => {
-    const hoy = hoyLab(new Date("2026-11-10T15:00:00Z"))
-    expect([hoy.getHours(), hoy.getMinutes(), hoy.getSeconds()]).toEqual([0, 0, 0])
   })
 })

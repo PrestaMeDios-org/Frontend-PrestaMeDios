@@ -1,24 +1,5 @@
 // Funciones puras del mini-calendario (SPEC-04 §8.2, Fase B).
-import { ZONA_LAB } from "../../notifications/services/fechas"
-
 export const VENTANA_DIAS = 62
-
-const partesLab = new Intl.DateTimeFormat("en-CA", {
-  timeZone: ZONA_LAB,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-})
-
-/**
- * "Hoy" en la zona del laboratorio, como fecha a las 00:00 (SPEC-04 §5.4). El backend valida
- * `desde ≥ hoy` con esa zona: con la hora del navegador, desde otra zona horaria el calendario
- * podría pedir un `desde` que termina en `422 RANGO_FECHAS_INVALIDO`.
- */
-export function hoyLab(ahora: Date = new Date()): Date {
-  const p = Object.fromEntries(partesLab.formatToParts(ahora).map((x) => [x.type, x.value]))
-  return new Date(Number(p.year), Number(p.month) - 1, Number(p.day))
-}
 
 export function aIso(fecha: Date): string {
   const y = fecha.getFullYear()
