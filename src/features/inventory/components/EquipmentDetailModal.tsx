@@ -1,12 +1,13 @@
-import type { Equipment } from "../types"
+import type { Role } from "../../../types"
+import type { Equipment, Sede } from "../types"
 import { Modal } from "./Modal"
 import { MiniCalendario } from "./MiniCalendario"
 import { AgregarAlPedido } from "./AgregarAlPedido"
 
 interface Props {
   equipment: Equipment
-  role: string
-  sede?: string
+  role: Role
+  sede?: Sede
   onClose: () => void
   onAddToCart?: (eq: Equipment) => void
 }

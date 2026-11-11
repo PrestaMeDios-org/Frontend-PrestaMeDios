@@ -3,6 +3,7 @@ import { useC } from "../../../theme"
 import { Alert } from "../../../components/ui/Form"
 import { useSede, useUsuario } from "../../auth/AuthContext"
 import { EquipmentCard } from "../components/EquipmentCard"
+import { AgregarAlPedido } from "../components/AgregarAlPedido"
 import { EstadoEquipo } from "../components/EstadoEquipo"
 import { EquipmentFormModal } from "../components/EquipmentFormModal"
 import { EquipmentDetailModal } from "../components/EquipmentDetailModal"
@@ -160,14 +161,22 @@ export function CatalogPage({
           }}
         >
           {filtered.map((eq, i) => (
-            <button
+            <div
               key={eq.id}
+              role="button"
+              tabIndex={0}
               onClick={() => setDetalle(eq)}
+              onKeyDown={(ev) => {
+                if (ev.target !== ev.currentTarget || (ev.key !== "Enter" && ev.key !== " ")) return
+                ev.preventDefault()
+                setDetalle(eq)
+              }}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 14,
                 width: "100%",
+                boxSizing: "border-box",
                 padding: "12px 16px",
                 background: "transparent",
                 border: "none",
@@ -175,7 +184,7 @@ export function CatalogPage({
                   i < filtered.length - 1
                     ? `1px solid ${C.borderLight}`
                     : "none",
-                cursor: canBook(eq) ? "pointer" : "default",
+                cursor: "pointer",
                 textAlign: "left",
                 opacity: eq.activo ? 1 : 0.6,
               }}
@@ -234,7 +243,8 @@ export function CatalogPage({
                 {eq.available_count}/{eq.quantity} uds.
               </span>
               <EstadoEquipo eq={eq} />
-            </button>
+              <AgregarAlPedido compacto equipment={eq} role={role} onAddToCart={onAddToCart} />
+            </div>
           ))}
         </div>
       )}
