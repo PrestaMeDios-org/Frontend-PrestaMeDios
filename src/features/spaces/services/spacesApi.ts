@@ -156,6 +156,16 @@ export async function createBloqueo(payload: {
   return mapBloqueo(await request<BloqueoApi>("/bloqueos", { method: "POST", json: payload }))
 }
 
+export async function createBloqueoGeneral(payload: {
+  fecha_inicio: string
+  fecha_fin: string
+  hora_inicio?: string
+  hora_fin?: string
+  motivo: string
+}): Promise<Bloqueo[]> {
+  return (await request<BloqueoApi[]>("/bloqueos/general", { method: "POST", json: payload })).map(mapBloqueo)
+}
+
 export async function deleteBloqueo(idBloqueo: number): Promise<void> {
   await request<void>(`/bloqueos/${idBloqueo}`, { method: "DELETE" })
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useC } from "../../../theme"
 import {
   createBloqueo,
+  createBloqueoGeneral,
   deleteBloqueo,
   createEspacio,
   createReserva,
@@ -328,29 +329,48 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [bloFechaInicio, setBloFechaInicio] = useState("")
   const [bloFechaFin, setBloFechaFin] = useState("")
   const [bloTodoElDia, setBloTodoElDia] = useState(true)
+  const [bloAmbasSedes, setBloAmbasSedes] = useState(false)
   const [bloHoraInicio, setBloHoraInicio] = useState(horario.apertura)
   const [bloHoraFin, setBloHoraFin] = useState(horario.cierre)
   const [bloMotivo, setBloMotivo] = useState("")
   const [bloqueoEliminando, setBloqueoEliminando] = useState<number | null>(null)
 
   const crearBloqueo = async () => {
-    if (idEspacio == null || !bloFechaInicio || !bloFechaFin || !bloMotivo) return
+    if ((!bloAmbasSedes && idEspacio == null) || !bloFechaInicio || !bloFechaFin || !bloMotivo) return
     setError(null)
+    setMensajeExito(null)
     try {
-      await createBloqueo({
-        id_espacio: idEspacio,
+      const rango = {
         fecha_inicio: bloFechaInicio,
         fecha_fin: bloFechaFin,
         hora_inicio: bloTodoElDia ? undefined : `${bloHoraInicio}:00`,
         hora_fin: bloTodoElDia ? undefined : `${bloHoraFin}:00`,
         motivo: bloMotivo,
-      })
+      }
+      let nuevosBloqueos: Bloqueo[]
+      if (bloAmbasSedes) {
+        nuevosBloqueos = await createBloqueoGeneral(rango)
+      } else {
+        if (idEspacio === null) return
+        nuevosBloqueos = [
+          await createBloqueo({
+            id_espacio: idEspacio,
+            ...rango,
+          }),
+        ]
+      }
+      setBloqueos((actuales) => [...actuales, ...nuevosBloqueos])
       setBloFechaInicio("")
       setBloFechaFin("")
       setBloMotivo("")
+      setMensajeExito(
+        bloAmbasSedes
+          ? `Se bloquearon todos los espacios de ambas sedes (${nuevosBloqueos.length}).`
+          : "Se bloqueó el espacio.",
+      )
       refrescarMes()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo crear el bloqueo")
+      setError(mensajeDeError(e, "No se pudo crear el bloqueo"))
     }
   }
 
@@ -825,6 +845,16 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                 onChange={(e) => setBloMotivo(e.target.value)}
                 style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, padding: "6px 10px", borderRadius: 8, border: `1px solid ${C.border}`, flex: 1, minWidth: 160 }}
               />
+              {esSuperAdmin && (
+                <label style={{ display: "flex", alignItems: "center", gap: 6, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={bloAmbasSedes}
+                    onChange={(e) => setBloAmbasSedes(e.target.checked)}
+                  />
+                  Todos los espacios de ambas sedes
+                </label>
+              )}
               <button
                 onClick={crearBloqueo}
                 style={{
@@ -838,7 +868,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                   fontSize: 13,
                 }}
               >
-                Bloquear
+                {bloAmbasSedes ? "Bloquear todos" : "Bloquear"}
               </button>
             </div>
             <div style={{ marginTop: 16 }}>
