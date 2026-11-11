@@ -27,6 +27,8 @@ export type Reserva = Ocupacion & {
   solicitanteApellido?: string | null
 }
 
+export type EstadoBloqueo = "Activo" | "Revertido"
+
 export type Bloqueo = {
   id: number
   idEspacio: number
@@ -35,6 +37,9 @@ export type Bloqueo = {
   horaInicio?: string
   horaFin?: string
   motivo: string
+  /** Compartido por las filas de un bloqueo general (ambas sedes); `null` si es individual. */
+  idGrupo: string | null
+  estado: EstadoBloqueo
 }
 
 export type Disponibilidad = {

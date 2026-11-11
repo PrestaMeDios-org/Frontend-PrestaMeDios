@@ -3,12 +3,12 @@ import { useC } from "../../../theme"
 import {
   createBloqueo,
   createBloqueoGeneral,
-  deleteBloqueo,
   createEspacio,
   createReserva,
   getDisponibilidad,
   getEspacios,
   listReservas,
+  revertirBloqueo,
   updateReservaEstado,
 } from "../services/spacesApi"
 import type { Bloqueo, Espacio, Ocupacion, Reserva } from "../types"
@@ -18,6 +18,7 @@ import { useSede, useUsuario } from "../../auth/AuthContext"
 import { mensajeDeError } from "../../../lib/api"
 import { isoALocal, ZONA_LAB } from "../../notifications/services/fechas"
 import { CalendarGrid } from "../components/CalendarGrid"
+import { agruparCorridas } from "../services/seleccion"
 import { Alert, Card, SelectField, TextField } from "../../../components/ui/Form"
 import { Button } from "../../../components/ui/Button"
 
@@ -198,18 +199,19 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     const horariosFallidos: string[] = []
     const errores: string[] = []
 
-    for (const slot of [...horariosSeleccionados].sort()) {
+    // SPEC-08 D-S04: cada tramo de horarios seguidos es una sola reserva.
+    for (const corrida of agruparCorridas(horariosSeleccionados)) {
       try {
         await createReserva({
           id_espacio: idEspacio,
           fecha_reserva: fecha,
-          hora_inicio: `${slot}:00`,
-          hora_fin: `${addHour(slot)}:00`,
+          hora_inicio: `${corrida.inicio}:00`,
+          hora_fin: `${corrida.fin}:00`,
         })
         solicitudesEnviadas += 1
       } catch (e) {
-        horariosFallidos.push(slot)
-        errores.push(`${slot}: ${mensajeDeError(e, "No se pudo crear la reserva")}`)
+        horariosFallidos.push(...corrida.turnos)
+        errores.push(`${corrida.inicio}–${corrida.fin}: ${mensajeDeError(e, "No se pudo crear la reserva")}`)
       }
     }
 
@@ -225,7 +227,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     setSolicitandoReservas(false)
     if (horariosFallidos.length > 0) {
       setError(
-        `Se enviaron ${solicitudesEnviadas} solicitud(es). No se pudieron enviar ${horariosFallidos.length}: ${errores.join("; ")}`,
+        `Se enviaron ${solicitudesEnviadas} solicitud(es). No se pudieron enviar ${errores.length}: ${errores.join("; ")}`,
       )
       return
     }
@@ -370,10 +372,15 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     setError(null)
     setBloqueoEliminando(bloqueo.id)
     try {
-      await deleteBloqueo(bloqueo.id)
-      setBloqueos((actuales) => actuales.filter((b) => b.id !== bloqueo.id))
+      const revertidos = new Set((await revertirBloqueo(bloqueo.id)).map((b) => b.id))
+      setBloqueos((actuales) => actuales.filter((b) => !revertidos.has(b.id)))
       setBloqueoParaDeshacer(null)
-      setMensajeExito("Se deshizo el bloqueo del espacio.")
+      setMensajeExito(
+        bloqueo.idGrupo
+          ? `Se deshizo el bloqueo general en todos los espacios (${revertidos.size}).`
+          : "Se deshizo el bloqueo del espacio.",
+      )
+      refrescarMes()
     } catch (e) {
       setError(mensajeDeError(e, "No se pudo deshacer el bloqueo"))
     } finally {
@@ -903,17 +910,21 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                       {bloqueo.fechaFin !== bloqueo.fechaInicio && ` – ${formatearFecha(bloqueo.fechaFin)}`}
                       {bloqueo.horaInicio && ` · ${bloqueo.horaInicio}–${bloqueo.horaFin}`}
                       {" · "}{bloqueo.motivo}
+                      {bloqueo.idGrupo && " · General (ambas sedes)"}
                     </span>
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setError(null)
-                        setBloqueoParaDeshacer(bloqueo)
-                      }}
-                      disabled={bloqueoEliminando !== null}
-                    >
-                      {bloqueoEliminando === bloqueo.id ? "Deshaciendo..." : "Deshacer"}
-                    </Button>
+                    {/* SPEC-08 D-S02: un bloqueo general sólo lo deshace el Superadministrador. */}
+                    {(!bloqueo.idGrupo || esSuperAdmin) && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setError(null)
+                          setBloqueoParaDeshacer(bloqueo)
+                        }}
+                        disabled={bloqueoEliminando !== null}
+                      >
+                        {bloqueoEliminando === bloqueo.id ? "Deshaciendo..." : "Deshacer"}
+                      </Button>
+                    )}
                   </div>
                 ))
               )}
@@ -957,16 +968,16 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               Confirmar solicitud
             </h2>
             <p style={{ margin: "0 0 16px", color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
-              Revisá el espacio, la fecha y los horarios. Se enviará una solicitud por cada horario.
+              Revisá el espacio, la fecha y los horarios. Los horarios seguidos se piden como una sola reserva.
             </p>
             <div style={{ padding: 14, borderRadius: 10, background: C.crimsonLight, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
               <strong>{espacioActual.nombre}</strong>
               <div style={{ marginTop: 4 }}>{formatearFecha(fecha)}</div>
             </div>
             <ul style={{ margin: "14px 0 20px", paddingLeft: 22, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 14 }}>
-              {horariosSeleccionados.map((slot) => (
-                <li key={slot} style={{ padding: "3px 0" }}>
-                  {slot}–{addHour(slot)}
+              {agruparCorridas(horariosSeleccionados).map((corrida) => (
+                <li key={corrida.inicio} style={{ padding: "3px 0" }}>
+                  {corrida.inicio}–{corrida.fin}
                 </li>
               ))}
             </ul>
@@ -1090,7 +1101,10 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               ¿Deshacer este bloqueo?
             </h2>
             <p style={{ margin: "0 0 16px", color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
-              Si confirmás, el espacio volverá a estar disponible en las fechas indicadas.
+              {bloqueoParaDeshacer.idGrupo
+                ? "Es un bloqueo general: si confirmás, se deshace en todos los espacios de ambas sedes."
+                : "Si confirmás, el espacio volverá a estar disponible en las fechas indicadas."}{" "}
+              El bloqueo queda registrado como revertido.
             </p>
             <div style={{ padding: 14, borderRadius: 10, background: C.occupiedBg, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
               <strong>{bloqueoParaDeshacer.motivo}</strong>
