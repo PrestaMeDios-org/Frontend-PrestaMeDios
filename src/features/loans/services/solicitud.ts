@@ -3,6 +3,7 @@
 // El backend sigue siendo la garantía (P2.2): esto sólo evita idas y vueltas.
 
 import { ApiError } from "../../../lib/api"
+import { hoyLab } from "../../../lib/fechas"
 import type { Reglas, SolicitudNueva } from "../types"
 import type { ItemCarrito } from "./carrito"
 
@@ -12,7 +13,6 @@ import type { ItemCarrito } from "./carrito"
  * la hora del laboratorio, esté donde esté su navegador (RN-L29, EC-L04).
  */
 export const DESFASE_LAB = "-03:00"
-const DESFASE_LAB_MS = -3 * 60 * 60 * 1000
 
 /** Tamaño máximo del PDF de aval (`ARCHIVO_PDF_MAX_MB` de `files`, por defecto 10). */
 export const AVAL_MAX_MB = 10
@@ -57,8 +57,10 @@ export function instanteLab(fecha: string, hora: string): Date {
 }
 
 /** La fecha de hoy en el laboratorio ("AAAA-MM-DD"), para el mínimo del calendario. */
-export function hoyLab(ahora: Date = new Date()): string {
-  return new Date(ahora.getTime() + DESFASE_LAB_MS).toISOString().slice(0, 10)
+export function fechaHoyLab(ahora: Date = new Date()): string {
+  const hoy = hoyLab(ahora) // compartida (`lib/fechas`): fecha local con el día del laboratorio
+  const dos = (n: number) => String(n).padStart(2, "0")
+  return `${hoy.getFullYear()}-${dos(hoy.getMonth() + 1)}-${dos(hoy.getDate())}`
 }
 
 const aMinutos = (hora: string) => {

@@ -10,8 +10,8 @@ import { crearOrden, obtenerReglas, subirAval } from "../services/loansApi"
 import {
   AVAL_MAX_MB,
   aSolicitudNueva,
+  fechaHoyLab,
   formularioInicial,
-  hoyLab,
   limiteDias,
   mensajeDeErrorSolicitud,
   opcionesDeHora,
@@ -73,7 +73,7 @@ export function SolicitudForm({ onClose, onVerSolicitudes }: Props) {
   )
   const errores = form && contexto && intentado ? validarSolicitud(form, contexto) : {}
   const horas = reglas ? opcionesDeHora(reglas.horarioApertura, reglas.horarioCierre) : []
-  const hoy = hoyLab()
+  const hoy = fechaHoyLab()
   const estiloFecha = useInputStyle(false)
   const estiloFechaInvalida = useInputStyle(true)
 

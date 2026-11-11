@@ -5,8 +5,8 @@ import type { ItemCarrito } from "./carrito"
 import {
   aSolicitudNueva,
   diasCorridos,
+  fechaHoyLab,
   formularioInicial,
-  hoyLab,
   instanteLab,
   limiteDias,
   mensajeDeErrorSolicitud,
@@ -71,7 +71,7 @@ describe("fechas en la hora del laboratorio", () => {
 
   it("hoy es la fecha del laboratorio, no la UTC", () => {
     // 01:30 UTC del 12/11 son las 22:30 del 11/11 en Ushuaia.
-    expect(hoyLab(new Date("2026-11-12T01:30:00Z"))).toBe("2026-11-11")
+    expect(fechaHoyLab(new Date("2026-11-12T01:30:00Z"))).toBe("2026-11-11")
   })
 
   it("las horas van de la apertura al cierre, ambas incluidas", () => {

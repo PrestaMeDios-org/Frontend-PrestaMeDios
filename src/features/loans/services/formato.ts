@@ -1,9 +1,10 @@
 // ─── Presentación de órdenes (SPEC-05 F1.5) ───────────────────────────────────
 
+import { ZONA_LAB } from "../../../lib/fechas"
 import type { EstadoDetalle, EstadoOrden, LineaOrden } from "../types"
 
 const FECHA_LAB = new Intl.DateTimeFormat("es-AR", {
-  timeZone: "America/Argentina/Ushuaia",
+  timeZone: ZONA_LAB,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
