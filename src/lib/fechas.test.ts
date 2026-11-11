@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { hoyLab, ZONA_LAB } from "./fechas"
+import { DESFASE_LAB, hoyLab, ZONA_LAB } from "./fechas"
 
 const iso = (f: Date) =>
   `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-${String(f.getDate()).padStart(2, "0")}`
@@ -24,5 +24,16 @@ describe("hoyLab", () => {
   it("devuelve la medianoche local de ese día", () => {
     const hoy = hoyLab(new Date("2026-11-10T15:00:00Z"))
     expect([hoy.getHours(), hoy.getMinutes(), hoy.getSeconds()]).toEqual([0, 0, 0])
+  })
+})
+
+describe("DESFASE_LAB", () => {
+  it("coincide con el desfase real de ZONA_LAB, en verano y en invierno", () => {
+    const desfase = (iso: string) =>
+      new Intl.DateTimeFormat("en-US", { timeZone: ZONA_LAB, timeZoneName: "longOffset" })
+        .formatToParts(new Date(iso))
+        .find((p) => p.type === "timeZoneName")?.value
+    expect(desfase("2026-01-15T12:00:00Z")).toBe(`GMT${DESFASE_LAB}`)
+    expect(desfase("2026-07-15T12:00:00Z")).toBe(`GMT${DESFASE_LAB}`)
   })
 })

@@ -3,16 +3,9 @@
 // El backend sigue siendo la garantía (P2.2): esto sólo evita idas y vueltas.
 
 import { ApiError } from "../../../lib/api"
-import { hoyLab } from "../../../lib/fechas"
+import { DESFASE_LAB, hoyLab } from "../../../lib/fechas"
 import type { Reglas, SolicitudNueva } from "../types"
 import type { ItemCarrito } from "./carrito"
-
-/**
- * Zona horaria del laboratorio (America/Argentina/Ushuaia). Argentina no usa horario de
- * verano, así que el desfase es fijo: las fechas que elige el usuario se interpretan en
- * la hora del laboratorio, esté donde esté su navegador (RN-L29, EC-L04).
- */
-export const DESFASE_LAB = "-03:00"
 
 /** Tamaño máximo del PDF de aval (`ARCHIVO_PDF_MAX_MB` de `files`, por defecto 10). */
 export const AVAL_MAX_MB = 10
@@ -51,7 +44,10 @@ export interface ContextoSolicitud {
   ahora?: Date
 }
 
-/** Instante de una fecha y hora del laboratorio. */
+/**
+ * Instante de una fecha y hora del laboratorio: lo que elige el usuario se interpreta en la
+ * hora del laboratorio, esté donde esté su navegador (RN-L29, EC-L04).
+ */
 export function instanteLab(fecha: string, hora: string): Date {
   return new Date(`${fecha}T${hora}:00${DESFASE_LAB}`)
 }
