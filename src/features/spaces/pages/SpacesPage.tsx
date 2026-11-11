@@ -54,6 +54,9 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [horario, setHorario] = useState({ apertura: "09:00", cierre: "16:00" })
   const [idEspacio, setIdEspacio] = useState<number | null>(null)
   const [fecha, setFecha] = useState<string | null>(null)
+  const [horariosSeleccionados, setHorariosSeleccionados] = useState<string[]>([])
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
+  const [solicitandoReservas, setSolicitandoReservas] = useState(false)
   const [mes, setMes] = useState(() => {
     const hoy = new Date()
     return new Date(hoy.getFullYear(), hoy.getMonth(), 1)
@@ -74,6 +77,11 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const esAdmin = role === "admin"
   const esSuperAdmin = usuario.rol === "SUPERADMIN"
   const puedeCrearEspacio = usuario.rol === "ADMIN_LOCAL" || esSuperAdmin
+
+  useEffect(() => {
+    setHorariosSeleccionados([])
+    setMostrarConfirmacion(false)
+  }, [fecha, idEspacio])
 
   useEffect(() => {
     getEspacios(sedeVista)
@@ -155,21 +163,58 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
       .catch((e) => setError(e.message))
   }
 
-  const reservar = async (slot: string) => {
-    if (!fecha || idEspacio == null) return
+  const alternarHorario = (slot: string) => {
     setError(null)
-    try {
-      await createReserva({
-        id_espacio: idEspacio,
-        fecha_reserva: fecha,
-        hora_inicio: `${slot}:00`,
-        hora_fin: `${addHour(slot)}:00`,
-      })
-      cargarMisReservas()
-      listReservas({ id_espacio: idEspacio, fecha }).then(setPendientes).catch(() => {})
-    } catch (e) {
-      setError(mensajeDeError(e, "No se pudo crear la reserva"))
+    setMensajeExito(null)
+    setHorariosSeleccionados((actuales) =>
+      actuales.includes(slot) ? actuales.filter((horario) => horario !== slot) : [...actuales, slot].sort(),
+    )
+  }
+
+  const confirmarReservas = async () => {
+    if (!fecha || idEspacio == null || horariosSeleccionados.length === 0) return
+
+    setSolicitandoReservas(true)
+    setError(null)
+    setMensajeExito(null)
+    let solicitudesEnviadas = 0
+    const horariosFallidos: string[] = []
+    const errores: string[] = []
+
+    for (const slot of [...horariosSeleccionados].sort()) {
+      try {
+        await createReserva({
+          id_espacio: idEspacio,
+          fecha_reserva: fecha,
+          hora_inicio: `${slot}:00`,
+          hora_fin: `${addHour(slot)}:00`,
+        })
+        solicitudesEnviadas += 1
+      } catch (e) {
+        horariosFallidos.push(slot)
+        errores.push(`${slot}: ${mensajeDeError(e, "No se pudo crear la reserva")}`)
+      }
     }
+
+    if (solicitudesEnviadas > 0) {
+      cargarMisReservas()
+      listReservas({ id_espacio: idEspacio, fecha })
+        .then(setPendientes)
+        .catch((e) => setError(mensajeDeError(e, "No se pudieron actualizar las reservas del día")))
+      refrescarMes()
+    }
+
+    setHorariosSeleccionados(horariosFallidos)
+    setSolicitandoReservas(false)
+    if (horariosFallidos.length > 0) {
+      setError(
+        `Se enviaron ${solicitudesEnviadas} solicitud(es). No se pudieron enviar ${horariosFallidos.length}: ${errores.join("; ")}`,
+      )
+      return
+    }
+
+    setMostrarConfirmacion(false)
+    setMensajeExito(`Se enviaron ${solicitudesEnviadas} solicitudes de reserva.`)
   }
 
   const cancelar = async (id: number) => {
@@ -450,13 +495,18 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                 const bloqueado = slotBloqueado(slot)
                 const pendiente = slotPendiente(slot)
                 const inhabilitado = ocupado || bloqueado
+                const seleccionado = horariosSeleccionados.includes(slot)
                 return (
                   <button
                     key={slot}
-                    disabled={inhabilitado || esAdmin}
+                    disabled={inhabilitado || esAdmin || (pendiente && !seleccionado)}
+                    aria-pressed={seleccionado}
                     title={esAdmin ? "Las reservas las solicitan estudiantes y docentes." : undefined}
-                    onClick={() => reservar(slot)}
+                    onClick={() => alternarHorario(slot)}
                     style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
                       padding: "8px 12px",
                       borderRadius: 9,
                       border: `1px solid ${C.border}`,
@@ -474,15 +524,41 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                           : pendiente
                             ? C.pending
                             : C.available,
-                      cursor: inhabilitado || esAdmin ? "default" : "pointer",
+                      cursor: inhabilitado || esAdmin || (pendiente && !seleccionado) ? "default" : "pointer",
                       fontFamily: "'Inter',sans-serif",
                       fontSize: 12.5,
                     }}
                   >
                     {slot}–{addHour(slot)}
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 15,
+                        height: 15,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: `1px solid ${seleccionado ? C.textMuted : C.border}`,
+                        borderRadius: 3,
+                        background: seleccionado ? C.textMuted : "transparent",
+                        color: C.card,
+                        fontSize: 11,
+                        lineHeight: 1,
+                      }}
+                    >
+                      {seleccionado ? "✓" : ""}
+                    </span>
                   </button>
                 )
               })}
+            </div>
+          )}
+          {!esAdmin && fecha && !isLoading && horariosSeleccionados.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
+              <span style={{ color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                {horariosSeleccionados.length} horario(s) seleccionado(s)
+              </span>
+              <Button onClick={() => setMostrarConfirmacion(true)}>Revisar solicitud</Button>
             </div>
           )}
         </div>
@@ -694,6 +770,75 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
             </div>
           </div>
         </>
+      )}
+      {mostrarConfirmacion && fecha && espacioActual && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            background: "rgba(0,0,0,0.48)",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirmar-reservas-titulo"
+            style={{
+              width: "100%",
+              maxWidth: 460,
+              maxHeight: "85vh",
+              overflowY: "auto",
+              background: C.card,
+              border: `1px solid ${C.border}`,
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.24)",
+            }}
+          >
+            <h2
+              id="confirmar-reservas-titulo"
+              style={{ margin: "0 0 8px", fontFamily: "'Outfit',sans-serif", fontSize: 20, color: C.text }}
+            >
+              Confirmar solicitud
+            </h2>
+            <p style={{ margin: "0 0 16px", color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              Revisá el espacio, la fecha y los horarios. Se enviará una solicitud por cada horario.
+            </p>
+            <div style={{ padding: 14, borderRadius: 10, background: C.crimsonLight, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              <strong>{espacioActual.nombre}</strong>
+              <div style={{ marginTop: 4 }}>{formatearFecha(fecha)}</div>
+            </div>
+            <ul style={{ margin: "14px 0 20px", paddingLeft: 22, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 14 }}>
+              {horariosSeleccionados.map((slot) => (
+                <li key={slot} style={{ padding: "3px 0" }}>
+                  {slot}–{addHour(slot)}
+                </li>
+              ))}
+            </ul>
+            {error && (
+              <div role="alert" style={{ marginBottom: 16, color: C.crimson, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                {error}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+              <Button
+                variant="ghost"
+                onClick={() => setMostrarConfirmacion(false)}
+                disabled={solicitandoReservas}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={confirmarReservas} disabled={solicitandoReservas || horariosSeleccionados.length === 0}>
+                {solicitandoReservas ? "Enviando..." : "Aceptar y solicitar"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
