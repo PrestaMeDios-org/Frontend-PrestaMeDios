@@ -16,6 +16,7 @@ import type { Role } from "../../../types"
 import { SEDES, type Sede } from "../../auth/types"
 import { useSede, useUsuario } from "../../auth/AuthContext"
 import { mensajeDeError } from "../../../lib/api"
+import { isoALocal, ZONA_LAB } from "../../notifications/services/fechas"
 import { CalendarGrid } from "../components/CalendarGrid"
 import { Alert, Card, SelectField, TextField } from "../../../components/ui/Form"
 import { Button } from "../../../components/ui/Button"
@@ -39,29 +40,17 @@ const toISO = (d: Date) =>
 
 const formatearFecha = (fecha: string) => {
   const [anio, mes, dia] = fecha.split("-").map(Number)
-  return new Intl.DateTimeFormat("es-AR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(anio, mes - 1, dia))
+  return formatoFechaLab.format(new Date(Date.UTC(anio, mes - 1, dia, 12)))
 }
 
-const formatoFechaHoraLab = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/Argentina/Ushuaia",
+const formatoFechaLab = new Intl.DateTimeFormat("es-AR", {
+  timeZone: ZONA_LAB,
+  day: "numeric",
+  month: "long",
   year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
 })
 
-const fechaHoraActualLab = (ahora: number) => {
-  const partes = Object.fromEntries(
-    formatoFechaHoraLab.formatToParts(new Date(ahora)).map(({ type, value }) => [type, value]),
-  )
-  return `${partes.year}-${partes.month}-${partes.day}T${partes.hour}:${partes.minute}`
-}
+const fechaHoraActualLab = (ahora: number) => isoALocal(new Date(ahora).toISOString())
 
 export function SpacesPage({ role = "student" }: { role?: Role }) {
   const C = useC()
@@ -76,6 +65,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [horariosSeleccionados, setHorariosSeleccionados] = useState<string[]>([])
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
   const [reservaParaCancelar, setReservaParaCancelar] = useState<Reserva | null>(null)
+  const [bloqueoParaDeshacer, setBloqueoParaDeshacer] = useState<Bloqueo | null>(null)
   const [cancelandoReserva, setCancelandoReserva] = useState(false)
   const [ahora, setAhora] = useState(() => Date.now())
   const [solicitandoReservas, setSolicitandoReservas] = useState(false)
@@ -374,14 +364,15 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     }
   }
 
-  const deshacerBloqueo = async (bloqueo: Bloqueo) => {
-    if (!window.confirm(`¿Deshacer el bloqueo "${bloqueo.motivo}"?`)) return
-
-    setBloqueoEliminando(bloqueo.id)
+  const confirmarDeshacerBloqueo = async () => {
+    if (!bloqueoParaDeshacer) return
+    const bloqueo = bloqueoParaDeshacer
     setError(null)
+    setBloqueoEliminando(bloqueo.id)
     try {
       await deleteBloqueo(bloqueo.id)
       setBloqueos((actuales) => actuales.filter((b) => b.id !== bloqueo.id))
+      setBloqueoParaDeshacer(null)
       setMensajeExito("Se deshizo el bloqueo del espacio.")
     } catch (e) {
       setError(mensajeDeError(e, "No se pudo deshacer el bloqueo"))
@@ -661,7 +652,9 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
           </div>
         )}
           {misReservas.map((r) => {
-            const expirada = `${r.fecha}T${r.horaFin}` <= fechaHoraActualLab(ahora)
+            const fechaHoraActual = fechaHoraActualLab(ahora)
+            const expirada = `${r.fecha}T${r.horaFin}` <= fechaHoraActual
+            const iniciada = `${r.fecha}T${r.horaInicio}` <= fechaHoraActual
             const estadoMostrado = expirada ? "Expirada" : r.estado
 
             return (
@@ -694,7 +687,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                     {estadoMostrado}
                   </strong>
                 </span>
-                {!expirada && (r.estado === "Pendiente" || r.estado === "Aprobada") && (
+                {!iniciada && (r.estado === "Pendiente" || r.estado === "Aprobada") && (
                   <button
                     onClick={() => {
                       setError(null)
@@ -913,7 +906,10 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                     </span>
                     <Button
                       variant="ghost"
-                      onClick={() => deshacerBloqueo(bloqueo)}
+                      onClick={() => {
+                        setError(null)
+                        setBloqueoParaDeshacer(bloqueo)
+                      }}
                       disabled={bloqueoEliminando !== null}
                     >
                       {bloqueoEliminando === bloqueo.id ? "Deshaciendo..." : "Deshacer"}
@@ -1055,6 +1051,79 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               </Button>
               <Button onClick={confirmarCancelacion} variant="danger" disabled={cancelandoReserva}>
                 {cancelandoReserva ? "Cancelando..." : "Sí, cancelar reserva"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {bloqueoParaDeshacer && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            background: "rgba(0,0,0,0.48)",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirmar-deshacer-bloqueo-titulo"
+            style={{
+              width: "100%",
+              maxWidth: 460,
+              background: C.card,
+              border: `1px solid ${C.border}`,
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.24)",
+            }}
+          >
+            <h2
+              id="confirmar-deshacer-bloqueo-titulo"
+              style={{ margin: "0 0 8px", fontFamily: "'Outfit',sans-serif", fontSize: 20, color: C.text }}
+            >
+              ¿Deshacer este bloqueo?
+            </h2>
+            <p style={{ margin: "0 0 16px", color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              Si confirmás, el espacio volverá a estar disponible en las fechas indicadas.
+            </p>
+            <div style={{ padding: 14, borderRadius: 10, background: C.occupiedBg, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              <strong>{bloqueoParaDeshacer.motivo}</strong>
+              <div style={{ marginTop: 4 }}>
+                {formatearFecha(bloqueoParaDeshacer.fechaInicio)}
+                {bloqueoParaDeshacer.fechaFin !== bloqueoParaDeshacer.fechaInicio &&
+                  ` – ${formatearFecha(bloqueoParaDeshacer.fechaFin)}`}
+                {bloqueoParaDeshacer.horaInicio &&
+                  ` · ${bloqueoParaDeshacer.horaInicio}–${bloqueoParaDeshacer.horaFin}`}
+              </div>
+            </div>
+            {error && (
+              <div role="alert" style={{ marginTop: 14, color: C.crimson, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                {error}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setBloqueoParaDeshacer(null)
+                  setError(null)
+                }}
+                disabled={bloqueoEliminando !== null}
+              >
+                No, volver
+              </Button>
+              <Button
+                onClick={confirmarDeshacerBloqueo}
+                variant="danger"
+                disabled={bloqueoEliminando !== null}
+              >
+                {bloqueoEliminando === bloqueoParaDeshacer.id ? "Deshaciendo..." : "Sí, deshacer bloqueo"}
               </Button>
             </div>
           </div>

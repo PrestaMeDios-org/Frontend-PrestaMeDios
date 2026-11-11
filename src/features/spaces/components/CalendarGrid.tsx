@@ -175,6 +175,7 @@ export function CalendarGrid({
             .join("\n")
           const mostrarMotivo = fechaConMotivoVisible === iso && detalleBloqueo.length > 0
           const tooltipId = `motivo-bloqueo-${iso}`
+          const ultimaColumna = i % 7 === 6
           return (
             <div
               key={iso}
@@ -214,7 +215,8 @@ export function CalendarGrid({
                     position: "absolute",
                     zIndex: 10,
                     top: "50%",
-                    left: "calc(100% + 6px)",
+                    left: ultimaColumna ? "auto" : "calc(100% + 6px)",
+                    right: ultimaColumna ? "calc(100% + 6px)" : "auto",
                     transform: "translateY(-50%)",
                     width: "max-content",
                     maxWidth: 220,
