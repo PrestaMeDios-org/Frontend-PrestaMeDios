@@ -16,12 +16,14 @@ const toISO = (d: Date) =>
 export function CalendarGrid({
   reservas,
   bloqueos,
+  horario,
   selectedFecha,
   onSelectFecha,
   onMonthChange,
 }: {
   reservas: Ocupacion[]
   bloqueos: Bloqueo[]
+  horario: { apertura: string; cierre: string }
   selectedFecha: string | null
   onSelectFecha: (iso: string) => void
   onMonthChange?: (view: Date) => void
@@ -29,6 +31,7 @@ export function CalendarGrid({
   const C = useC()
   const hoy = new Date()
   const [view, setView] = useState(new Date(hoy.getFullYear(), hoy.getMonth(), 1))
+  const [fechaConMotivoVisible, setFechaConMotivoVisible] = useState<string | null>(null)
 
   const maxView = new Date(hoy.getFullYear(), hoy.getMonth() + 4, 1)
   const canPrev = view > new Date(hoy.getFullYear(), hoy.getMonth(), 1)
@@ -44,18 +47,42 @@ export function CalendarGrid({
     return out
   }, [view])
 
-  const ocupadoEl = (iso: string) =>
-    reservas.some(
-      (r) => r.fecha === iso && (r.estado === "Aprobada" || r.estado === "En_Uso"),
-    ) || bloqueos.some((b) => b.fechaInicio <= iso && b.fechaFin >= iso)
+  const minutos = (hora: string) => {
+    const [horas, minutos] = hora.split(":").map(Number)
+    return horas * 60 + minutos
+  }
 
-  const bloqueadoEl = (iso: string) =>
-    bloqueos.some(
-      (b) => b.fechaInicio <= iso && b.fechaFin >= iso && !b.horaInicio,
-    )
+  const estadoDelDia = (iso: string) => {
+    const inicioDia = minutos(horario.apertura)
+    const finDia = minutos(horario.cierre)
+    const bloqueosDelDia = bloqueos.filter((b) => b.fechaInicio <= iso && b.fechaFin >= iso)
+    const bloqueoCompleto = bloqueosDelDia.some((b) => !b.horaInicio)
+    const rangosActivos = [
+      ...reservas
+        .filter((r) => r.fecha === iso && (r.estado === "Aprobada" || r.estado === "En_Uso"))
+        .map((r) => [minutos(r.horaInicio), minutos(r.horaFin)] as const),
+      ...bloqueosDelDia
+        .filter((b) => b.horaInicio && b.horaFin)
+        .map((b) => [minutos(b.horaInicio!), minutos(b.horaFin!)] as const),
+    ]
+      .map(([inicio, fin]) => [Math.max(inicioDia, inicio), Math.min(finDia, fin)] as const)
+      .filter(([inicio, fin]) => fin > inicio)
+      .sort(([inicioA], [inicioB]) => inicioA - inicioB)
 
-  const pendienteEl = (iso: string) =>
-    reservas.some((r) => r.fecha === iso && r.estado === "Pendiente")
+    let finCubierto = inicioDia
+    for (const [inicio, fin] of rangosActivos) {
+      if (inicio > finCubierto) break
+      finCubierto = Math.max(finCubierto, fin)
+    }
+
+    const totalmenteOcupado = bloqueoCompleto || (finDia > inicioDia && finCubierto >= finDia)
+    const tieneOcupacionParcial =
+      rangosActivos.length > 0 ||
+      reservas.some((r) => r.fecha === iso && r.estado === "Pendiente") ||
+      bloqueoCompleto
+
+    return { totalmenteOcupado, tieneOcupacionParcial }
+  }
 
   return (
     <div
@@ -133,35 +160,83 @@ export function CalendarGrid({
           const iso = toISO(d)
           const past = d < new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
           const selected = iso === selectedFecha
-          const ocupado = ocupadoEl(iso)
-          const bloqueado = bloqueadoEl(iso)
-          const pendiente = !ocupado && !bloqueado && pendienteEl(iso)
+          const { totalmenteOcupado, tieneOcupacionParcial } = estadoDelDia(iso)
+          const bloqueado = bloqueos.some(
+            (b) => b.fechaInicio <= iso && b.fechaFin >= iso && !b.horaInicio,
+          )
+          const detalleBloqueo = Array.from(
+            new Map(
+              bloqueos
+                .filter((b) => b.fechaInicio <= iso && b.fechaFin >= iso)
+                .map((b) => [b.id, b]),
+            ).values(),
+          )
+            .map((b) => `${b.motivo}${b.horaInicio ? ` (${b.horaInicio}–${b.horaFin})` : " (todo el día)"}`)
+            .join("\n")
+          const mostrarMotivo = fechaConMotivoVisible === iso && detalleBloqueo.length > 0
+          const tooltipId = `motivo-bloqueo-${iso}`
+          const ultimaColumna = i % 7 === 6
           return (
-            <button
+            <div
               key={iso}
-              disabled={past || bloqueado}
-              onClick={() => onSelectFecha(iso)}
-              style={{
-                padding: "8px 0",
-                borderRadius: 10,
-                border: selected ? `2px solid ${C.crimson}` : "1px solid transparent",
-                background: selected
-                  ? C.crimsonLight
-                  : bloqueado
-                    ? C.maintenanceBg
-                    : ocupado
-                      ? C.occupiedBg
-                      : pendiente
-                        ? C.pendingBg
-                        : "transparent",
-                color: past || bloqueado ? C.textFaint : C.text,
-                cursor: past || bloqueado ? "default" : "pointer",
-                fontFamily: "'Inter',sans-serif",
-                fontSize: 13,
-              }}
+              onMouseEnter={() => detalleBloqueo && setFechaConMotivoVisible(iso)}
+              onMouseLeave={() => setFechaConMotivoVisible(null)}
+              onFocus={() => detalleBloqueo && setFechaConMotivoVisible(iso)}
+              onBlur={() => setFechaConMotivoVisible(null)}
+              style={{ position: "relative", minWidth: 0 }}
             >
-              {d.getDate()}
-            </button>
+              <button
+                disabled={past || bloqueado}
+                aria-describedby={mostrarMotivo ? tooltipId : undefined}
+                onClick={() => onSelectFecha(iso)}
+                style={{
+                  width: "100%",
+                  padding: "8px 0",
+                  borderRadius: 10,
+                  border: selected ? `2px solid ${C.crimson}` : "1px solid transparent",
+                  background: totalmenteOcupado
+                    ? C.occupiedBg
+                    : tieneOcupacionParcial
+                      ? C.pendingBg
+                      : "transparent",
+                  color: past || bloqueado ? C.textFaint : C.text,
+                  cursor: past || bloqueado ? "default" : "pointer",
+                  fontFamily: "'Inter',sans-serif",
+                  fontSize: 13,
+                }}
+              >
+                {d.getDate()}
+              </button>
+              {mostrarMotivo && (
+                <span
+                  id={tooltipId}
+                  role="tooltip"
+                  style={{
+                    position: "absolute",
+                    zIndex: 10,
+                    top: "50%",
+                    left: ultimaColumna ? "auto" : "calc(100% + 6px)",
+                    right: ultimaColumna ? "calc(100% + 6px)" : "auto",
+                    transform: "translateY(-50%)",
+                    width: "max-content",
+                    maxWidth: 220,
+                    padding: "7px 10px",
+                    borderRadius: 7,
+                    background: C.text,
+                    color: C.card,
+                    boxShadow: "0 3px 12px rgba(0,0,0,0.2)",
+                    fontFamily: "'Inter',sans-serif",
+                    fontSize: 12,
+                    lineHeight: 1.4,
+                    textAlign: "left",
+                    whiteSpace: "pre-line",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {detalleBloqueo}
+                </span>
+              )}
+            </div>
           )
         })}
       </div>

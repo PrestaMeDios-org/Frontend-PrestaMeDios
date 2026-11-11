@@ -2,11 +2,13 @@ import { useEffect, useState } from "react"
 import { useC } from "../../../theme"
 import {
   createBloqueo,
+  createBloqueoGeneral,
   createEspacio,
   createReserva,
   getDisponibilidad,
   getEspacios,
   listReservas,
+  revertirBloqueo,
   updateReservaEstado,
 } from "../services/spacesApi"
 import type { Bloqueo, Espacio, Ocupacion, Reserva } from "../types"
@@ -14,7 +16,9 @@ import type { Role } from "../../../types"
 import { SEDES, type Sede } from "../../auth/types"
 import { useSede, useUsuario } from "../../auth/AuthContext"
 import { mensajeDeError } from "../../../lib/api"
+import { isoALocal, ZONA_LAB } from "../../notifications/services/fechas"
 import { CalendarGrid } from "../components/CalendarGrid"
+import { agruparCorridas } from "../services/seleccion"
 import { Alert, Card, SelectField, TextField } from "../../../components/ui/Form"
 import { Button } from "../../../components/ui/Button"
 
@@ -35,6 +39,20 @@ const addHour = (hora: string) =>
 const toISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
+const formatearFecha = (fecha: string) => {
+  const [anio, mes, dia] = fecha.split("-").map(Number)
+  return formatoFechaLab.format(new Date(Date.UTC(anio, mes - 1, dia, 12)))
+}
+
+const formatoFechaLab = new Intl.DateTimeFormat("es-AR", {
+  timeZone: ZONA_LAB,
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+})
+
+const fechaHoraActualLab = (ahora: number) => isoALocal(new Date(ahora).toISOString())
+
 export function SpacesPage({ role = "student" }: { role?: Role }) {
   const C = useC()
   const usuario = useUsuario()
@@ -45,6 +63,13 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [horario, setHorario] = useState({ apertura: "09:00", cierre: "16:00" })
   const [idEspacio, setIdEspacio] = useState<number | null>(null)
   const [fecha, setFecha] = useState<string | null>(null)
+  const [horariosSeleccionados, setHorariosSeleccionados] = useState<string[]>([])
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
+  const [reservaParaCancelar, setReservaParaCancelar] = useState<Reserva | null>(null)
+  const [bloqueoParaDeshacer, setBloqueoParaDeshacer] = useState<Bloqueo | null>(null)
+  const [cancelandoReserva, setCancelandoReserva] = useState(false)
+  const [ahora, setAhora] = useState(() => Date.now())
+  const [solicitandoReservas, setSolicitandoReservas] = useState(false)
   const [mes, setMes] = useState(() => {
     const hoy = new Date()
     return new Date(hoy.getFullYear(), hoy.getMonth(), 1)
@@ -65,6 +90,16 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const esAdmin = role === "admin"
   const esSuperAdmin = usuario.rol === "SUPERADMIN"
   const puedeCrearEspacio = usuario.rol === "ADMIN_LOCAL" || esSuperAdmin
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setAhora(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    setHorariosSeleccionados([])
+    setMostrarConfirmacion(false)
+  }, [fecha, idEspacio])
 
   useEffect(() => {
     getEspacios(sedeVista)
@@ -115,7 +150,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     listReservas()
       .then((list) =>
         setMisReservas(
-          list.filter((r) => r.estado === "Pendiente" || r.estado === "Aprobada" || r.estado === "En_Uso"),
+          list.filter((r) => r.estado !== "Cancelada" && r.estado !== "Rechazada"),
         ),
       )
       .catch((e) => setError(e.message))
@@ -146,30 +181,75 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
       .catch((e) => setError(e.message))
   }
 
-  const reservar = async (slot: string) => {
-    if (!fecha || idEspacio == null) return
+  const alternarHorario = (slot: string) => {
     setError(null)
-    try {
-      await createReserva({
-        id_espacio: idEspacio,
-        fecha_reserva: fecha,
-        hora_inicio: `${slot}:00`,
-        hora_fin: `${addHour(slot)}:00`,
-      })
-      cargarMisReservas()
-      listReservas({ id_espacio: idEspacio, fecha }).then(setPendientes).catch(() => {})
-    } catch (e) {
-      setError(mensajeDeError(e, "No se pudo crear la reserva"))
-    }
+    setMensajeExito(null)
+    setHorariosSeleccionados((actuales) =>
+      actuales.includes(slot) ? actuales.filter((horario) => horario !== slot) : [...actuales, slot].sort(),
+    )
   }
 
-  const cancelar = async (id: number) => {
+  const confirmarReservas = async () => {
+    if (!fecha || idEspacio == null || horariosSeleccionados.length === 0) return
+
+    setSolicitandoReservas(true)
+    setError(null)
+    setMensajeExito(null)
+    let solicitudesEnviadas = 0
+    const horariosFallidos: string[] = []
+    const errores: string[] = []
+
+    // SPEC-08 D-S04: cada tramo de horarios seguidos es una sola reserva.
+    for (const corrida of agruparCorridas(horariosSeleccionados)) {
+      try {
+        await createReserva({
+          id_espacio: idEspacio,
+          fecha_reserva: fecha,
+          hora_inicio: `${corrida.inicio}:00`,
+          hora_fin: `${corrida.fin}:00`,
+        })
+        solicitudesEnviadas += 1
+      } catch (e) {
+        horariosFallidos.push(...corrida.turnos)
+        errores.push(`${corrida.inicio}–${corrida.fin}: ${mensajeDeError(e, "No se pudo crear la reserva")}`)
+      }
+    }
+
+    if (solicitudesEnviadas > 0) {
+      cargarMisReservas()
+      listReservas({ id_espacio: idEspacio, fecha })
+        .then(setPendientes)
+        .catch((e) => setError(mensajeDeError(e, "No se pudieron actualizar las reservas del día")))
+      refrescarMes()
+    }
+
+    setHorariosSeleccionados(horariosFallidos)
+    setSolicitandoReservas(false)
+    if (horariosFallidos.length > 0) {
+      setError(
+        `Se enviaron ${solicitudesEnviadas} solicitud(es). No se pudieron enviar ${errores.length}: ${errores.join("; ")}`,
+      )
+      return
+    }
+
+    setMostrarConfirmacion(false)
+    setMensajeExito(`Se enviaron ${solicitudesEnviadas} solicitudes de reserva.`)
+  }
+
+  const confirmarCancelacion = async () => {
+    if (!reservaParaCancelar) return
+
     try {
-      await updateReservaEstado(id, "Cancelada")
+      setCancelandoReserva(true)
+      setError(null)
+      await updateReservaEstado(reservaParaCancelar.id, "Cancelada")
+      setReservaParaCancelar(null)
       cargarMisReservas()
       refrescarMes()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo cancelar")
+      setError(mensajeDeError(e, "No se pudo cancelar la reserva"))
+    } finally {
+      setCancelandoReserva(false)
     }
   }
 
@@ -208,6 +288,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const espaciosPorSede = espacios.filter((e) => e.sede === (selectedSede ?? espacioActual?.sede))
   const delEspacio = reservas.filter((r) => r.idEspacio === idEspacio)
   const delEspacioBloqueos = bloqueos.filter((b) => b.idEspacio === idEspacio)
+  const bloqueosUnicos = Array.from(new Map(delEspacioBloqueos.map((b) => [b.id, b])).values())
 
   const slotBloqueado = (slot: string) =>
     delEspacioBloqueos.some(
@@ -240,28 +321,70 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [bloFechaInicio, setBloFechaInicio] = useState("")
   const [bloFechaFin, setBloFechaFin] = useState("")
   const [bloTodoElDia, setBloTodoElDia] = useState(true)
+  const [bloAmbasSedes, setBloAmbasSedes] = useState(false)
   const [bloHoraInicio, setBloHoraInicio] = useState(horario.apertura)
   const [bloHoraFin, setBloHoraFin] = useState(horario.cierre)
   const [bloMotivo, setBloMotivo] = useState("")
+  const [bloqueoEliminando, setBloqueoEliminando] = useState<number | null>(null)
 
   const crearBloqueo = async () => {
-    if (idEspacio == null || !bloFechaInicio || !bloFechaFin || !bloMotivo) return
+    if ((!bloAmbasSedes && idEspacio == null) || !bloFechaInicio || !bloFechaFin || !bloMotivo) return
     setError(null)
+    setMensajeExito(null)
     try {
-      await createBloqueo({
-        id_espacio: idEspacio,
+      const rango = {
         fecha_inicio: bloFechaInicio,
         fecha_fin: bloFechaFin,
         hora_inicio: bloTodoElDia ? undefined : `${bloHoraInicio}:00`,
         hora_fin: bloTodoElDia ? undefined : `${bloHoraFin}:00`,
         motivo: bloMotivo,
-      })
+      }
+      let nuevosBloqueos: Bloqueo[]
+      if (bloAmbasSedes) {
+        nuevosBloqueos = await createBloqueoGeneral(rango)
+      } else {
+        if (idEspacio === null) return
+        nuevosBloqueos = [
+          await createBloqueo({
+            id_espacio: idEspacio,
+            ...rango,
+          }),
+        ]
+      }
+      setBloqueos((actuales) => [...actuales, ...nuevosBloqueos])
       setBloFechaInicio("")
       setBloFechaFin("")
       setBloMotivo("")
+      setMensajeExito(
+        bloAmbasSedes
+          ? `Se bloquearon todos los espacios de ambas sedes (${nuevosBloqueos.length}).`
+          : "Se bloqueó el espacio.",
+      )
       refrescarMes()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo crear el bloqueo")
+      setError(mensajeDeError(e, "No se pudo crear el bloqueo"))
+    }
+  }
+
+  const confirmarDeshacerBloqueo = async () => {
+    if (!bloqueoParaDeshacer) return
+    const bloqueo = bloqueoParaDeshacer
+    setError(null)
+    setBloqueoEliminando(bloqueo.id)
+    try {
+      const revertidos = new Set((await revertirBloqueo(bloqueo.id)).map((b) => b.id))
+      setBloqueos((actuales) => actuales.filter((b) => !revertidos.has(b.id)))
+      setBloqueoParaDeshacer(null)
+      setMensajeExito(
+        bloqueo.idGrupo
+          ? `Se deshizo el bloqueo general en todos los espacios (${revertidos.size}).`
+          : "Se deshizo el bloqueo del espacio.",
+      )
+      refrescarMes()
+    } catch (e) {
+      setError(mensajeDeError(e, "No se pudo deshacer el bloqueo"))
+    } finally {
+      setBloqueoEliminando(null)
     }
   }
 
@@ -407,8 +530,15 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
         <CalendarGrid
           reservas={delEspacio}
           bloqueos={delEspacioBloqueos}
+          horario={horario}
           selectedFecha={fecha}
-          onSelectFecha={setFecha}
+          onSelectFecha={(iso) => {
+            setFecha(iso)
+            if (esAdmin) {
+              setBloFechaInicio(iso)
+              setBloFechaFin(iso)
+            }
+          }}
           onMonthChange={setMes}
         />
         <div
@@ -441,13 +571,18 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                 const bloqueado = slotBloqueado(slot)
                 const pendiente = slotPendiente(slot)
                 const inhabilitado = ocupado || bloqueado
+                const seleccionado = horariosSeleccionados.includes(slot)
                 return (
                   <button
                     key={slot}
-                    disabled={inhabilitado || esAdmin}
+                    disabled={inhabilitado || esAdmin || (pendiente && !seleccionado)}
+                    aria-pressed={seleccionado}
                     title={esAdmin ? "Las reservas las solicitan estudiantes y docentes." : undefined}
-                    onClick={() => reservar(slot)}
+                    onClick={() => alternarHorario(slot)}
                     style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
                       padding: "8px 12px",
                       borderRadius: 9,
                       border: `1px solid ${C.border}`,
@@ -465,15 +600,41 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                           : pendiente
                             ? C.pending
                             : C.available,
-                      cursor: inhabilitado || esAdmin ? "default" : "pointer",
+                      cursor: inhabilitado || esAdmin || (pendiente && !seleccionado) ? "default" : "pointer",
                       fontFamily: "'Inter',sans-serif",
                       fontSize: 12.5,
                     }}
                   >
                     {slot}–{addHour(slot)}
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 15,
+                        height: 15,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: `1px solid ${seleccionado ? C.textMuted : C.border}`,
+                        borderRadius: 3,
+                        background: seleccionado ? C.textMuted : "transparent",
+                        color: C.card,
+                        fontSize: 11,
+                        lineHeight: 1,
+                      }}
+                    >
+                      {seleccionado ? "✓" : ""}
+                    </span>
                   </button>
                 )
               })}
+            </div>
+          )}
+          {!esAdmin && fecha && !isLoading && horariosSeleccionados.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
+              <span style={{ color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                {horariosSeleccionados.length} horario(s) seleccionado(s)
+              </span>
+              <Button onClick={() => setMostrarConfirmacion(true)}>Revisar solicitud</Button>
             </div>
           )}
         </div>
@@ -494,43 +655,67 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
         </div>
         {misReservas.length === 0 && (
           <div style={{ color: C.textFaint, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
-            No tenés reservas vigentes.
+            No tenés reservas registradas.
           </div>
         )}
-        {misReservas.map((r) => (
-          <div
-            key={r.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "8px 0",
-              borderBottom: `1px solid ${C.borderLight}`,
-              fontFamily: "'Inter',sans-serif",
-              fontSize: 13,
-              color: C.text,
-            }}
-          >
-            <span>
-              {nombreEspacio(r.idEspacio)} · {r.fecha} · {r.horaInicio}–{r.horaFin} ·{" "}
-              <strong style={{ color: r.estado === "Aprobada" ? C.available : C.pending }}>{r.estado}</strong>
-            </span>
-            <button
-              onClick={() => cancelar(r.id)}
-              style={{
-                padding: "5px 12px",
-                borderRadius: 8,
-                border: `1px solid ${C.border}`,
-                background: C.occupiedBg,
-                color: C.occupied,
-                cursor: "pointer",
-                fontSize: 12,
-              }}
-            >
-              Cancelar
-            </button>
-          </div>
-        ))}
+          {misReservas.map((r) => {
+            const fechaHoraActual = fechaHoraActualLab(ahora)
+            const expirada = `${r.fecha}T${r.horaFin}` <= fechaHoraActual
+            const iniciada = `${r.fecha}T${r.horaInicio}` <= fechaHoraActual
+            const estadoMostrado = expirada ? "Expirada" : r.estado
+
+            return (
+              <div
+                key={r.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "8px 0",
+                  borderBottom: `1px solid ${C.borderLight}`,
+                  fontFamily: "'Inter',sans-serif",
+                  fontSize: 13,
+                  color: expirada ? C.textFaint : C.text,
+                }}
+              >
+                <span>
+                  {nombreEspacio(r.idEspacio)} · {formatearFecha(r.fecha)} · {r.horaInicio}–{r.horaFin} ·{" "}
+                  <strong
+                    style={{
+                      color: expirada
+                        ? C.textFaint
+                        : r.estado === "Aprobada"
+                          ? C.available
+                          : r.estado === "Pendiente"
+                            ? C.pending
+                            : C.textMuted,
+                    }}
+                  >
+                    {estadoMostrado}
+                  </strong>
+                </span>
+                {!iniciada && (r.estado === "Pendiente" || r.estado === "Aprobada") && (
+                  <button
+                    onClick={() => {
+                      setError(null)
+                      setReservaParaCancelar(r)
+                    }}
+                    style={{
+                      padding: "5px 12px",
+                      borderRadius: 8,
+                      border: `1px solid ${C.border}`,
+                      background: C.occupiedBg,
+                      color: C.occupied,
+                      cursor: "pointer",
+                      fontSize: 12,
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </div>
+            )
+          })}
       </div>
       )}
 
@@ -568,8 +753,13 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                   color: C.text,
                 }}
               >
-                <span>
-                  Usuario #{r.idUsuario} · {nombreEspacio(r.idEspacio)} · {r.fecha} · {r.horaInicio}–{r.horaFin}
+                <span style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+                  {r.solicitanteNombre && r.solicitanteApellido
+                    ? `${r.solicitanteApellido}, ${r.solicitanteNombre}`
+                    : `Usuario #${r.idUsuario}`}
+                  <span style={{ color: C.textFaint, fontSize: 12 }}>
+                    {nombreEspacio(r.idEspacio)} · {formatearFecha(r.fecha)} · {r.horaInicio}–{r.horaFin}
+                  </span>
                 </span>
                 <span style={{ display: "flex", gap: 8 }}>
                   <button
@@ -662,6 +852,16 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                 onChange={(e) => setBloMotivo(e.target.value)}
                 style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, padding: "6px 10px", borderRadius: 8, border: `1px solid ${C.border}`, flex: 1, minWidth: 160 }}
               />
+              {esSuperAdmin && (
+                <label style={{ display: "flex", alignItems: "center", gap: 6, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                  <input
+                    type="checkbox"
+                    checked={bloAmbasSedes}
+                    onChange={(e) => setBloAmbasSedes(e.target.checked)}
+                  />
+                  Todos los espacios de ambas sedes
+                </label>
+              )}
               <button
                 onClick={crearBloqueo}
                 style={{
@@ -675,12 +875,275 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                   fontSize: 13,
                 }}
               >
-                Bloquear
+                {bloAmbasSedes ? "Bloquear todos" : "Bloquear"}
               </button>
+            </div>
+            <div style={{ marginTop: 6, color: C.textFaint, fontFamily: "'Inter',sans-serif", fontSize: 12 }}>
+              Seleccioná una fecha en el calendario para completar el inicio y fin del bloqueo.
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, color: C.text, marginBottom: 8 }}>
+                Bloqueos de {espacioActual?.nombre ?? "este espacio"}
+              </div>
+              {bloqueosUnicos.length === 0 ? (
+                <div style={{ color: C.textFaint, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                  No hay bloqueos en el mes visible.
+                </div>
+              ) : (
+                bloqueosUnicos.map((bloqueo) => (
+                  <div
+                    key={bloqueo.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "8px 0",
+                      borderBottom: `1px solid ${C.borderLight}`,
+                      fontFamily: "'Inter',sans-serif",
+                      fontSize: 13,
+                      color: C.text,
+                    }}
+                  >
+                    <span>
+                      {formatearFecha(bloqueo.fechaInicio)}
+                      {bloqueo.fechaFin !== bloqueo.fechaInicio && ` – ${formatearFecha(bloqueo.fechaFin)}`}
+                      {bloqueo.horaInicio && ` · ${bloqueo.horaInicio}–${bloqueo.horaFin}`}
+                      {" · "}{bloqueo.motivo}
+                      {bloqueo.idGrupo && " · General (ambas sedes)"}
+                    </span>
+                    {/* SPEC-08 D-S02: un bloqueo general sólo lo deshace el Superadministrador. */}
+                    {(!bloqueo.idGrupo || esSuperAdmin) && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setError(null)
+                          setBloqueoParaDeshacer(bloqueo)
+                        }}
+                        disabled={bloqueoEliminando !== null}
+                      >
+                        {bloqueoEliminando === bloqueo.id ? "Deshaciendo..." : "Deshacer"}
+                      </Button>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </>
       )}
+      {mostrarConfirmacion && fecha && espacioActual && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            background: "rgba(0,0,0,0.48)",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirmar-reservas-titulo"
+            style={{
+              width: "100%",
+              maxWidth: 460,
+              maxHeight: "85vh",
+              overflowY: "auto",
+              background: C.card,
+              border: `1px solid ${C.border}`,
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.24)",
+            }}
+          >
+            <h2
+              id="confirmar-reservas-titulo"
+              style={{ margin: "0 0 8px", fontFamily: "'Outfit',sans-serif", fontSize: 20, color: C.text }}
+            >
+              Confirmar solicitud
+            </h2>
+            <p style={{ margin: "0 0 16px", color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              Revisá el espacio, la fecha y los horarios. Los horarios seguidos se piden como una sola reserva.
+            </p>
+            <div style={{ padding: 14, borderRadius: 10, background: C.crimsonLight, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              <strong>{espacioActual.nombre}</strong>
+              <div style={{ marginTop: 4 }}>{formatearFecha(fecha)}</div>
+            </div>
+            <ul style={{ margin: "14px 0 20px", paddingLeft: 22, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 14 }}>
+              {agruparCorridas(horariosSeleccionados).map((corrida) => (
+                <li key={corrida.inicio} style={{ padding: "3px 0" }}>
+                  {corrida.inicio}–{corrida.fin}
+                </li>
+              ))}
+            </ul>
+            {error && (
+              <div role="alert" style={{ marginBottom: 16, color: C.crimson, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                {error}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
+              <Button
+                variant="ghost"
+                onClick={() => setMostrarConfirmacion(false)}
+                disabled={solicitandoReservas}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={confirmarReservas} disabled={solicitandoReservas || horariosSeleccionados.length === 0}>
+                {solicitandoReservas ? "Enviando..." : "Aceptar y solicitar"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {reservaParaCancelar && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            background: "rgba(0,0,0,0.48)",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirmar-cancelacion-titulo"
+            style={{
+              width: "100%",
+              maxWidth: 460,
+              background: C.card,
+              border: `1px solid ${C.border}`,
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.24)",
+            }}
+          >
+            <h2
+              id="confirmar-cancelacion-titulo"
+              style={{ margin: "0 0 8px", fontFamily: "'Outfit',sans-serif", fontSize: 20, color: C.text }}
+            >
+              ¿Cancelar esta reserva?
+            </h2>
+            <p style={{ margin: "0 0 16px", color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              Si confirmás, se cancelará también la aprobación del administrador.
+            </p>
+            <div style={{ padding: 14, borderRadius: 10, background: C.occupiedBg, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              <strong>{nombreEspacio(reservaParaCancelar.idEspacio)}</strong>
+              <div style={{ marginTop: 4 }}>
+                {formatearFecha(reservaParaCancelar.fecha)} · {reservaParaCancelar.horaInicio}–{reservaParaCancelar.horaFin}
+              </div>
+              <div style={{ marginTop: 4 }}>Estado: {reservaParaCancelar.estado}</div>
+            </div>
+            {error && (
+              <div role="alert" style={{ marginTop: 14, color: C.crimson, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                {error}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setReservaParaCancelar(null)
+                  setError(null)
+                }}
+                disabled={cancelandoReserva}
+              >
+                No, volver
+              </Button>
+              <Button onClick={confirmarCancelacion} variant="danger" disabled={cancelandoReserva}>
+                {cancelandoReserva ? "Cancelando..." : "Sí, cancelar reserva"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {bloqueoParaDeshacer && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            background: "rgba(0,0,0,0.48)",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirmar-deshacer-bloqueo-titulo"
+            style={{
+              width: "100%",
+              maxWidth: 460,
+              background: C.card,
+              border: `1px solid ${C.border}`,
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.24)",
+            }}
+          >
+            <h2
+              id="confirmar-deshacer-bloqueo-titulo"
+              style={{ margin: "0 0 8px", fontFamily: "'Outfit',sans-serif", fontSize: 20, color: C.text }}
+            >
+              ¿Deshacer este bloqueo?
+            </h2>
+            <p style={{ margin: "0 0 16px", color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              {bloqueoParaDeshacer.idGrupo
+                ? "Es un bloqueo general: si confirmás, se deshace en todos los espacios de ambas sedes."
+                : "Si confirmás, el espacio volverá a estar disponible en las fechas indicadas."}{" "}
+              El bloqueo queda registrado como revertido.
+            </p>
+            <div style={{ padding: 14, borderRadius: 10, background: C.occupiedBg, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              <strong>{bloqueoParaDeshacer.motivo}</strong>
+              <div style={{ marginTop: 4 }}>
+                {formatearFecha(bloqueoParaDeshacer.fechaInicio)}
+                {bloqueoParaDeshacer.fechaFin !== bloqueoParaDeshacer.fechaInicio &&
+                  ` – ${formatearFecha(bloqueoParaDeshacer.fechaFin)}`}
+                {bloqueoParaDeshacer.horaInicio &&
+                  ` · ${bloqueoParaDeshacer.horaInicio}–${bloqueoParaDeshacer.horaFin}`}
+              </div>
+            </div>
+            {error && (
+              <div role="alert" style={{ marginTop: 14, color: C.crimson, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                {error}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setBloqueoParaDeshacer(null)
+                  setError(null)
+                }}
+                disabled={bloqueoEliminando !== null}
+              >
+                No, volver
+              </Button>
+              <Button
+                onClick={confirmarDeshacerBloqueo}
+                variant="danger"
+                disabled={bloqueoEliminando !== null}
+              >
+                {bloqueoEliminando === bloqueoParaDeshacer.id ? "Deshaciendo..." : "Sí, deshacer bloqueo"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
