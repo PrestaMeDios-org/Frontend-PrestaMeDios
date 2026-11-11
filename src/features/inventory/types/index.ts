@@ -145,7 +145,7 @@ export interface DiaDisponibilidadDTO {
 
 export interface DisponibilidadDTO {
   equipamiento_id: number
-  sede: any
+  sede: Sede
   desde: string
   hasta: string
   unidades_asignables: number

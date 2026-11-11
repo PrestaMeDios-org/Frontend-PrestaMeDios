@@ -1,5 +1,6 @@
 import type {
   CategoriaDTO,
+  DisponibilidadDTO,
   EquipamientoCatalogoDTO,
   EquipamientoCreateDTO,
   EquipamientoDTO,
@@ -100,14 +101,12 @@ export const darDeBajaUnidad = (unidadId: number) => cambiarEstadoUnidad(unidadI
 export const rehabilitarUnidad = (unidadId: number) =>
   cambiarEstadoUnidad(unidadId, "disponible")
 
-import type { DisponibilidadDTO } from "../types"
-
 export function obtenerDisponibilidad(
   id: number,
-  params: { desde: string; hasta: string; sede?: any },
+  params: { desde: string; hasta: string; sede?: Sede },
   signal?: AbortSignal,
 ): Promise<DisponibilidadDTO> {
   const qs = new URLSearchParams({ desde: params.desde, hasta: params.hasta })
-  if (params.sede) qs.set("sede", String(params.sede))
+  if (params.sede) qs.set("sede", params.sede)
   return request(`/equipamiento/${id}/disponibilidad?${qs.toString()}`, { signal })
 }
