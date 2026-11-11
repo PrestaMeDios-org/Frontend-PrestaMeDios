@@ -1,7 +1,31 @@
 import { apiRequest } from "../../../lib/api"
-import type { ParametroDTO, ParametroHistorialDTO, TipoParametro, ValorParametro } from "../types"
+import type {
+  DatosSede,
+  DatosSedeDTO,
+  ParametroDTO,
+  ParametroHistorialDTO,
+  TipoParametro,
+  ValorParametro,
+} from "../types"
+import { aDatosSede } from "./mappers"
 
 const BASE = "/api/v1/config/parametros"
+
+/**
+ * Horario y correo de contacto de cada sede, en el orden Ushuaia, Río Grande
+ * (SPEC-09 §4.5). Lo usan el portal, el aviso de anticipación y los calendarios.
+ */
+export const obtenerDatosSedes = async (signal?: AbortSignal): Promise<DatosSede[]> =>
+  (await apiRequest<DatosSedeDTO[]>("/api/v1/config/sedes", { signal })).map(aDatosSede)
+
+/** Claves `contacto.<sede>.email`: se editan como correo (SPEC-09 RN-80). */
+export const esCorreoContacto = (clave: string) => /^contacto\.[a-z][a-z0-9_]*\.email$/.test(clave)
+
+/** Validación en línea; la definitiva la hace el backend con `email-validator`. */
+export const correoValido = (texto: string) => {
+  const t = texto.trim()
+  return t.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)
+}
 
 export const listarParametros = () => apiRequest<ParametroDTO[]>(BASE)
 

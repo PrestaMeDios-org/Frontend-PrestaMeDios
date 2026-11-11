@@ -4,12 +4,26 @@ import { Alert, Card, useInputStyle } from "../../../components/ui/Form"
 import { useC } from "../../../theme"
 import { ApiError, mensajeDeError } from "../../../lib/api"
 import { useUsuario } from "../../auth/AuthContext"
-import { actualizarParametro, convertirValor, historialParametro, listarParametros } from "../services/configApi"
+import {
+  actualizarParametro,
+  convertirValor,
+  correoValido,
+  esCorreoContacto,
+  historialParametro,
+  listarParametros,
+} from "../services/configApi"
 import type { ParametroDTO, ParametroHistorialDTO, ValorParametro } from "../types"
 
 const mostrar = (v: ValorParametro) => (typeof v === "boolean" ? (v ? "Sí" : "No") : String(v))
 
-/** Panel de Parámetros Globales (GLO-03): el SUPERADMIN edita; el ADMIN_LOCAL consulta. */
+/** El correo de contacto de una sede arranca vacío: "sin configurar" (SPEC-09 D-05). */
+const SIN_CONFIGURAR = "Sin configurar"
+
+/**
+ * Panel de Parámetros Globales (GLO-03): el SUPERADMIN edita; el ADMIN_LOCAL consulta.
+ * Desde SPEC-09 el horario y el correo de contacto se cargan por sede; las claves
+ * globales de horario quedan obsoletas y sin edición (`editable = false`).
+ */
 export function ParametersPage() {
   const usuario = useUsuario()
   const puedeEditar = usuario.rol === "SUPERADMIN"
@@ -70,18 +84,25 @@ function FilaParametro({
   onConflicto: (mensaje: string) => void
 }) {
   const C = useC()
-  const input = useInputStyle()
   const [editando, setEditando] = useState(false)
   const [texto, setTexto] = useState(String(p.valor))
   const [motivo, setMotivo] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [historial, setHistorial] = useState<ParametroHistorialDTO[] | null>(null)
+  const esCorreo = esCorreoContacto(p.clave)
+  const correoInvalido = esCorreo && texto.trim() !== "" && !correoValido(texto)
+  const input = useInputStyle()
+  const inputCorreo = useInputStyle(correoInvalido)
 
   useEffect(() => setTexto(String(p.valor)), [p.valor])
 
   const guardar = async () => {
     setError(null)
-    const valor = convertirValor(p.tipo, texto)
+    if (esCorreo && !correoValido(texto)) {
+      setError("Ingresá un correo válido, por ejemplo laboratorio@untdf.edu.ar.")
+      return
+    }
+    const valor = esCorreo ? texto.trim().toLowerCase() : convertirValor(p.tipo, texto)
     if (valor === null) {
       setError(p.tipo === "HORA" ? "Formato HH:MM." : "Valor inválido para el tipo del parámetro.")
       return
@@ -140,10 +161,13 @@ function FilaParametro({
               </select>
             ) : (
               <input
-                type={p.tipo === "HORA" ? "time" : p.tipo === "TEXTO" ? "text" : "number"}
+                type={esCorreo ? "email" : p.tipo === "HORA" ? "time" : p.tipo === "TEXTO" ? "text" : "number"}
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
-                style={{ ...input, width: p.tipo === "TEXTO" ? 220 : 110 }}
+                placeholder={esCorreo ? "laboratorio@untdf.edu.ar" : undefined}
+                aria-invalid={correoInvalido || undefined}
+                aria-label={p.descripcion}
+                style={{ ...(esCorreo ? inputCorreo : input), width: esCorreo ? 260 : p.tipo === "TEXTO" ? 220 : 110 }}
               />
             )}
             <input
@@ -152,17 +176,23 @@ function FilaParametro({
               onChange={(e) => setMotivo(e.target.value)}
               style={{ ...input, width: 200 }}
             />
-            <Button onClick={guardar}>Guardar</Button>
+            <Button onClick={guardar} disabled={correoInvalido}>
+              Guardar
+            </Button>
             <Button variant="ghost" onClick={() => (setEditando(false), setTexto(String(p.valor)), setError(null))}>
               Cancelar
             </Button>
           </span>
         ) : (
           <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <strong style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, color: C.crimson }}>
-              {mostrar(p.valor)}
-              {p.unidad ? ` ${p.unidad}` : ""}
-            </strong>
+            {esCorreo && p.valor === "" ? (
+              <em style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.textFaint }}>{SIN_CONFIGURAR}</em>
+            ) : (
+              <strong style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, color: C.crimson }}>
+                {mostrar(p.valor)}
+                {p.unidad ? ` ${p.unidad}` : ""}
+              </strong>
+            )}
             {puedeEditar && (
               <Button variant="ghost" onClick={() => setEditando(true)}>
                 Editar
@@ -174,6 +204,9 @@ function FilaParametro({
           </span>
         )}
       </div>
+      {editando && correoInvalido && !error && (
+        <div style={{ ...chico, color: C.crimson }}>Todavía no es un correo válido.</div>
+      )}
       {error && <Alert>{error}</Alert>}
       {historial && (
         <div style={chico}>
@@ -181,7 +214,8 @@ function FilaParametro({
             ? "Sin modificaciones desde la carga inicial."
             : historial.map((h) => (
                 <div key={h.version}>
-                  v{h.version} · {new Date(h.created_at).toLocaleString()} · {mostrar(h.valor_anterior)} →{" "}
+                  v{h.version} · {new Date(h.created_at).toLocaleString()} ·{" "}
+                  {esCorreo && h.valor_anterior === "" ? SIN_CONFIGURAR : mostrar(h.valor_anterior)} →{" "}
                   {mostrar(h.valor_nuevo)}
                   {h.motivo ? ` · ${h.motivo}` : ""}
                 </div>
