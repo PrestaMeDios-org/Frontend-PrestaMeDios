@@ -44,6 +44,23 @@ const formatearFecha = (fecha: string) => {
   }).format(new Date(anio, mes - 1, dia))
 }
 
+const formatoFechaHoraLab = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Argentina/Ushuaia",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+})
+
+const fechaHoraActualLab = (ahora: number) => {
+  const partes = Object.fromEntries(
+    formatoFechaHoraLab.formatToParts(new Date(ahora)).map(({ type, value }) => [type, value]),
+  )
+  return `${partes.year}-${partes.month}-${partes.day}T${partes.hour}:${partes.minute}`
+}
+
 export function SpacesPage({ role = "student" }: { role?: Role }) {
   const C = useC()
   const usuario = useUsuario()
@@ -58,6 +75,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
   const [reservaParaCancelar, setReservaParaCancelar] = useState<Reserva | null>(null)
   const [cancelandoReserva, setCancelandoReserva] = useState(false)
+  const [ahora, setAhora] = useState(() => Date.now())
   const [solicitandoReservas, setSolicitandoReservas] = useState(false)
   const [mes, setMes] = useState(() => {
     const hoy = new Date()
@@ -79,6 +97,11 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const esAdmin = role === "admin"
   const esSuperAdmin = usuario.rol === "SUPERADMIN"
   const puedeCrearEspacio = usuario.rol === "ADMIN_LOCAL" || esSuperAdmin
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setAhora(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     setHorariosSeleccionados([])
@@ -134,7 +157,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     listReservas()
       .then((list) =>
         setMisReservas(
-          list.filter((r) => r.estado === "Pendiente" || r.estado === "Aprobada" || r.estado === "En_Uso"),
+          list.filter((r) => r.estado !== "Cancelada" && r.estado !== "Rechazada"),
         ),
       )
       .catch((e) => setError(e.message))
@@ -588,46 +611,65 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
         </div>
         {misReservas.length === 0 && (
           <div style={{ color: C.textFaint, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
-            No tenés reservas vigentes.
+            No tenés reservas registradas.
           </div>
         )}
-        {misReservas.map((r) => (
-          <div
-            key={r.id}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "8px 0",
-              borderBottom: `1px solid ${C.borderLight}`,
-              fontFamily: "'Inter',sans-serif",
-              fontSize: 13,
-              color: C.text,
-            }}
-          >
-            <span>
-              {nombreEspacio(r.idEspacio)} · {formatearFecha(r.fecha)} · {r.horaInicio}–{r.horaFin} ·{" "}
-              <strong style={{ color: r.estado === "Aprobada" ? C.available : C.pending }}>{r.estado}</strong>
-            </span>
-            <button
-              onClick={() => {
-                setError(null)
-                setReservaParaCancelar(r)
-              }}
-              style={{
-                padding: "5px 12px",
-                borderRadius: 8,
-                border: `1px solid ${C.border}`,
-                background: C.occupiedBg,
-                color: C.occupied,
-                cursor: "pointer",
-                fontSize: 12,
-              }}
-            >
-              Cancelar
-            </button>
-          </div>
-        ))}
+          {misReservas.map((r) => {
+            const expirada = `${r.fecha}T${r.horaFin}` <= fechaHoraActualLab(ahora)
+            const estadoMostrado = expirada ? "Expirada" : r.estado
+
+            return (
+              <div
+                key={r.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "8px 0",
+                  borderBottom: `1px solid ${C.borderLight}`,
+                  fontFamily: "'Inter',sans-serif",
+                  fontSize: 13,
+                  color: expirada ? C.textFaint : C.text,
+                }}
+              >
+                <span>
+                  {nombreEspacio(r.idEspacio)} · {formatearFecha(r.fecha)} · {r.horaInicio}–{r.horaFin} ·{" "}
+                  <strong
+                    style={{
+                      color: expirada
+                        ? C.textFaint
+                        : r.estado === "Aprobada"
+                          ? C.available
+                          : r.estado === "Pendiente"
+                            ? C.pending
+                            : C.textMuted,
+                    }}
+                  >
+                    {estadoMostrado}
+                  </strong>
+                </span>
+                {!expirada && (r.estado === "Pendiente" || r.estado === "Aprobada") && (
+                  <button
+                    onClick={() => {
+                      setError(null)
+                      setReservaParaCancelar(r)
+                    }}
+                    style={{
+                      padding: "5px 12px",
+                      borderRadius: 8,
+                      border: `1px solid ${C.border}`,
+                      background: C.occupiedBg,
+                      color: C.occupied,
+                      cursor: "pointer",
+                      fontSize: 12,
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </div>
+            )
+          })}
       </div>
       )}
 
