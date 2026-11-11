@@ -6,6 +6,7 @@ import { ApiError, mensajeDeError } from "../../../lib/api"
 import { useSede, useUsuario } from "../../auth/AuthContext"
 import { errorPassword, ESTADO_LABEL, iniciales, ROL_LABEL } from "../../auth/roles"
 import { SEDES } from "../../auth/types"
+import { validarCambioTelefono, validarTelefono } from "../services/telefono"
 import {
   cambiarEstado,
   crearUsuario,
@@ -356,16 +357,19 @@ function NuevaCuenta({ onCreada }: { onCreada: (u: UsuarioDetalleDTO) => void })
   const [enviando, setEnviando] = useState(false)
   const set = <K extends keyof typeof d>(k: K) => (v: (typeof d)[K]) => setD((p) => ({ ...p, [k]: v }))
   const errPwd = d.password ? errorPassword(d.password, d.email) : null
+  const [intento, setIntento] = useState(false)
+  const errTelefono = intento ? validarTelefono(d.telefono) : null
 
   const crear = async () => {
     setError(null)
     setCampos({})
-    if (errPwd) return
+    setIntento(true)
+    if (errPwd || validarTelefono(d.telefono)) return
     setEnviando(true)
     try {
       const creado = await crearUsuario({
         ...d,
-        telefono: d.telefono.trim() || null,
+        telefono: d.telefono.trim(),
         sede: d.rol === "SUPERADMIN" ? null : d.sede,
       })
       onCreada(creado)
@@ -385,7 +389,7 @@ function NuevaCuenta({ onCreada }: { onCreada: (u: UsuarioDetalleDTO) => void })
         <TextField label="Apellido" value={d.apellido} onChange={set("apellido")} error={campos.apellido} />
         <TextField label="DNI" value={d.dni} onChange={set("dni")} error={campos.dni} />
         <TextField label="Email" type="email" value={d.email} onChange={set("email")} error={campos.email} />
-        <TextField label="Teléfono (opcional)" value={d.telefono} onChange={set("telefono")} error={campos.telefono} />
+        <TextField label="Teléfono" value={d.telefono} onChange={set("telefono")} error={errTelefono ?? campos.telefono} />
         <TextField
           label="Contraseña inicial"
           type="password"
@@ -470,7 +474,9 @@ function EditarUsuario({
     if (d.apellido !== usuario.apellido) cambios.apellido = d.apellido
     if (d.dni !== usuario.dni) cambios.dni = d.dni
     if (d.email !== usuario.email) cambios.email = d.email
-    if (d.telefono.trim() !== (usuario.telefono ?? "")) cambios.telefono = d.telefono.trim() || null
+    const errTelefono = validarCambioTelefono(d.telefono, usuario.telefono) // RN-88
+    if (errTelefono) return setCampos({ telefono: errTelefono })
+    if (d.telefono.trim() !== (usuario.telefono ?? "")) cambios.telefono = d.telefono.trim()
     if (d.rol !== usuario.rol) cambios.rol = d.rol
     const sede = d.rol === "SUPERADMIN" ? null : (d.sede ?? "Ushuaia")
     if (sede !== usuario.sede) cambios.sede = sede

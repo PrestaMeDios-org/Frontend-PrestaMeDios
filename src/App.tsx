@@ -15,6 +15,8 @@ import { esRutaRestablecer, leerTokenDeRecuperacion, limpiarFragmento } from "./
 import { ChangePasswordPage } from "./features/auth/pages/ChangePasswordForm"
 import { ProfilePage } from "./features/users/pages/ProfilePage"
 import { UsersPage } from "./features/users/pages/UsersPage"
+import { AvisoTelefono } from "./features/users/components/AvisoTelefono"
+import { necesitaTelefono } from "./features/users/services/telefono"
 import { ParametersPage } from "./features/config/pages/ParametersPage"
 import { NewsPage } from "./features/notifications/pages/NewsPage"
 import { CarritoProvider, useCarrito } from "./features/loans/CarritoContext"
@@ -185,6 +187,7 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
       cartCount={puedePedir ? carrito.total : 0}
       cartType={carrito.tipo}
       onCartOpen={() => setCarritoAbierto(true)}
+      aviso={necesitaTelefono(usuario) && <AvisoTelefono onIrAMiPerfil={() => setScreen("profile")} />}
     >
       {visible === "catalog" && (
         <CatalogPage
