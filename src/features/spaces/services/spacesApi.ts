@@ -29,6 +29,8 @@ type ReservaApi = {
   hora_fin: string
   estado_reserva: EstadoReserva
   motivo?: string | null
+  solicitante_nombre?: string | null
+  solicitante_apellido?: string | null
 }
 
 type BloqueoApi = {
@@ -67,6 +69,8 @@ const mapReserva = (r: ReservaApi): Reserva => ({
   horaFin: hhmm(r.hora_fin),
   estado: r.estado_reserva,
   motivo: r.motivo ?? undefined,
+  solicitanteNombre: r.solicitante_nombre ?? null,
+  solicitanteApellido: r.solicitante_apellido ?? null,
 })
 
 const mapBloqueo = (b: BloqueoApi): Bloqueo => ({

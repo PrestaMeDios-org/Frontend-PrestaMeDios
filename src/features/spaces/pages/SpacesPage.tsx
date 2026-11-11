@@ -35,6 +35,15 @@ const addHour = (hora: string) =>
 const toISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
+const formatearFecha = (fecha: string) => {
+  const [anio, mes, dia] = fecha.split("-").map(Number)
+  return new Intl.DateTimeFormat("es-AR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(anio, mes - 1, dia))
+}
+
 export function SpacesPage({ role = "student" }: { role?: Role }) {
   const C = useC()
   const usuario = useUsuario()
@@ -512,7 +521,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
             }}
           >
             <span>
-              {nombreEspacio(r.idEspacio)} · {r.fecha} · {r.horaInicio}–{r.horaFin} ·{" "}
+              {nombreEspacio(r.idEspacio)} · {formatearFecha(r.fecha)} · {r.horaInicio}–{r.horaFin} ·{" "}
               <strong style={{ color: r.estado === "Aprobada" ? C.available : C.pending }}>{r.estado}</strong>
             </span>
             <button
@@ -568,8 +577,13 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                   color: C.text,
                 }}
               >
-                <span>
-                  Usuario #{r.idUsuario} · {nombreEspacio(r.idEspacio)} · {r.fecha} · {r.horaInicio}–{r.horaFin}
+                <span style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+                  {r.solicitanteNombre && r.solicitanteApellido
+                    ? `${r.solicitanteApellido}, ${r.solicitanteNombre}`
+                    : `Usuario #${r.idUsuario}`}
+                  <span style={{ color: C.textFaint, fontSize: 12 }}>
+                    {nombreEspacio(r.idEspacio)} · {formatearFecha(r.fecha)} · {r.horaInicio}–{r.horaFin}
+                  </span>
                 </span>
                 <span style={{ display: "flex", gap: 8 }}>
                   <button

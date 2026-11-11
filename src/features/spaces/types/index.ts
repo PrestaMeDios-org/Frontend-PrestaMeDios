@@ -23,6 +23,8 @@ export type Reserva = Ocupacion & {
   id: number
   idUsuario: number
   motivo?: string
+  solicitanteNombre?: string | null
+  solicitanteApellido?: string | null
 }
 
 export type Bloqueo = {
