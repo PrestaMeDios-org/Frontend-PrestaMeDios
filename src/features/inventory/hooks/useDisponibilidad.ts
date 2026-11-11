@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import type { DisponibilidadDTO } from "../types"
+import type { DisponibilidadDTO, Sede } from "../types"
 import { obtenerDisponibilidad } from "../services/inventoryApi"
 
 export interface UseDisponibilidadResult {
@@ -12,7 +12,7 @@ export function useDisponibilidad(
   equipamientoId: number | null,
   desde: string | null,
   hasta: string | null,
-  sede?: string,
+  sede?: Sede,
 ): UseDisponibilidadResult {
   const [data, setData] = useState<DisponibilidadDTO | null>(null)
   const [cargando, setCargando] = useState(false)
@@ -26,7 +26,7 @@ export function useDisponibilidad(
     const controller = new AbortController()
     setCargando(true)
     setError(null)
-    obtenerDisponibilidad(equipamientoId, { desde, hasta, sede: sede as any }, controller.signal)
+    obtenerDisponibilidad(equipamientoId, { desde, hasta, sede }, controller.signal)
       .then((d) => setData(d))
       .catch((e) => {
         if (controller.signal.aborted) return
