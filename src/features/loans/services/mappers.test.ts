@@ -61,6 +61,11 @@ describe("toReglas", () => {
 })
 
 describe("toOrden", () => {
+  it("toma el aval si viene y lo deja en null si no", () => {
+    expect(toOrden(orden({ aval_archivo_id: "uuid-aval" })).avalArchivoId).toBe("uuid-aval")
+    expect(toOrden(orden()).avalArchivoId).toBeNull()
+  })
+
   it("convierte fechas y líneas, sin solicitante para el dueño", () => {
     const o = toOrden(orden())
     expect(o.solicitante).toBeNull()

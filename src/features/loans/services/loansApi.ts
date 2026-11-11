@@ -71,6 +71,14 @@ export async function subirAval(archivo: File): Promise<string> {
   return id
 }
 
+/**
+ * El PDF de aval de una orden (`GET /ordenes/{id}/aval`): lo descargan el solicitante y los
+ * administradores con jurisdicción (RN-60 de SPEC-03). Se muestra con `URL.createObjectURL`.
+ */
+export function descargarAval(ordenId: number): Promise<Blob> {
+  return apiRequest<Blob>(`${BASE}/ordenes/${ordenId}/aval`, { responseType: "blob" })
+}
+
 /** Queda `pendiente`; solicitante y sede salen de la sesión. */
 export async function crearOrden(solicitud: SolicitudNueva): Promise<Orden> {
   const dto = await request<OrdenPedidoDTO>("/ordenes", {

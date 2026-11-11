@@ -21,6 +21,7 @@ import { CarritoProvider, useCarrito } from "./features/loans/CarritoContext"
 import { CarritoPanel } from "./features/loans/components/CarritoPanel"
 import { SolicitudForm } from "./features/loans/components/SolicitudForm"
 import { MisSolicitudesPage } from "./features/loans/pages/MisSolicitudesPage"
+import { BandejaPage } from "./features/loans/pages/BandejaPage"
 
 const TITLES: Record<Screen, { title: string; subtitle?: string }> = {
   catalog: {
@@ -215,6 +216,7 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
         />
       )}
       {visible === "status" && puedePedir && <MisSolicitudesPage />}
+      {visible === "admin-validations" && esAdmin(usuario.rol) && <BandejaPage />}
       {visible === "admin-stock" && <StockPage />}
       {visible === "spaces" && <SpacesPage key={sedeVista ?? "ambas"} role={role} />}
       {visible === "profile" && <ProfilePage />}
@@ -227,7 +229,8 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
         renderizan aquí según `screen`, siguiendo la misma estructura.
       */}
       {!["catalog", "admin-stock", "spaces", "profile", "users", "parameters", "news"].includes(visible) &&
-        !(visible === "status" && puedePedir) && (
+        !(visible === "status" && puedePedir) &&
+        visible !== "admin-validations" && (
         <div
           style={{
             flex: 1,

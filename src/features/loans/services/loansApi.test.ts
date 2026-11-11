@@ -12,6 +12,7 @@ import {
   obtenerReglas,
   obtenerUnidadesLibres,
   rechazarOrden,
+  descargarAval,
   subirAval,
 } from "./loansApi"
 
@@ -226,3 +227,20 @@ describe("subirAval", () => {
   })
 })
 
+describe("descargarAval", () => {
+  it("pide el PDF de la orden como blob", async () => {
+    tokenStore.set("token-de-prueba")
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(new Blob(["%PDF-1.4"], { type: "application/pdf" }), {
+        status: 200,
+        headers: { "Content-Type": "application/pdf" },
+      }),
+    )
+
+    const blob = await descargarAval(5)
+
+    expect(blob.type).toBe("application/pdf")
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toMatch(/\/api\/v1\/loans\/ordenes\/5\/aval$/)
+  })
+})
