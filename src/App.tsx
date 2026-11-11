@@ -19,6 +19,8 @@ import { ParametersPage } from "./features/config/pages/ParametersPage"
 import { NewsPage } from "./features/notifications/pages/NewsPage"
 import { CarritoProvider, useCarrito } from "./features/loans/CarritoContext"
 import { CarritoPanel } from "./features/loans/components/CarritoPanel"
+import { SolicitudForm } from "./features/loans/components/SolicitudForm"
+import { MisSolicitudesPage } from "./features/loans/pages/MisSolicitudesPage"
 
 const TITLES: Record<Screen, { title: string; subtitle?: string }> = {
   catalog: {
@@ -152,6 +154,7 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
   const [screen, setScreen] = useState<Screen>("catalog")
   const carrito = useCarrito()
   const [carritoAbierto, setCarritoAbierto] = useState(false)
+  const [solicitudAbierta, setSolicitudAbierta] = useState(false)
   // Solo estudiantes y docentes piden equipos (SPEC-05 PRE-03).
   const puedePedir = role === "student" || role === "teacher"
   const visible: Screen = SOLO_ADMIN.includes(screen) && !esAdmin(usuario.rol) ? "catalog" : screen
@@ -189,7 +192,29 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
           onAddToCart={puedePedir ? carrito.agregar : undefined}
         />
       )}
-      {carritoAbierto && <CarritoPanel onClose={() => setCarritoAbierto(false)} />}
+      {carritoAbierto && (
+        <CarritoPanel
+          onClose={() => setCarritoAbierto(false)}
+          onContinuar={
+            puedePedir
+              ? () => {
+                  setCarritoAbierto(false)
+                  setSolicitudAbierta(true)
+                }
+              : undefined
+          }
+        />
+      )}
+      {solicitudAbierta && (
+        <SolicitudForm
+          onClose={() => setSolicitudAbierta(false)}
+          onVerSolicitudes={() => {
+            setSolicitudAbierta(false)
+            setScreen("status")
+          }}
+        />
+      )}
+      {visible === "status" && puedePedir && <MisSolicitudesPage />}
       {visible === "admin-stock" && <StockPage />}
       {visible === "spaces" && <SpacesPage key={sedeVista ?? "ambas"} role={role} />}
       {visible === "profile" && <ProfilePage />}
@@ -201,7 +226,8 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
         Módulos en desarrollo por el equipo (loans, novedades, etc.): se
         renderizan aquí según `screen`, siguiendo la misma estructura.
       */}
-      {!["catalog", "admin-stock", "spaces", "profile", "users", "parameters", "news"].includes(visible) && (
+      {!["catalog", "admin-stock", "spaces", "profile", "users", "parameters", "news"].includes(visible) &&
+        !(visible === "status" && puedePedir) && (
         <div
           style={{
             flex: 1,

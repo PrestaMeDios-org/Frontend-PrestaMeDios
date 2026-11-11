@@ -55,6 +55,22 @@ export async function obtenerReglas(signal?: AbortSignal): Promise<Reglas> {
   return toReglas(await request<ReglasDTO>("/reglas", { signal }))
 }
 
+/**
+ * Sube el PDF de aval de alta gama a `files` (SPEC-03 §6.3, `proposito=AVAL_PRESTAMO`) y
+ * devuelve su id, que viaja como `pdf_aval_id` en la orden (PRE-05). El archivo queda sin
+ * vincular hasta que se crea la orden; si no se crea, `files` lo limpia.
+ */
+export async function subirAval(archivo: File): Promise<string> {
+  const form = new FormData()
+  form.append("archivo", archivo)
+  form.append("proposito", "AVAL_PRESTAMO")
+  const { id } = await apiRequest<{ id: string }>("/api/v1/files/archivos", {
+    method: "POST",
+    form,
+  })
+  return id
+}
+
 /** Queda `pendiente`; solicitante y sede salen de la sesión. */
 export async function crearOrden(solicitud: SolicitudNueva): Promise<Orden> {
   const dto = await request<OrdenPedidoDTO>("/ordenes", {
