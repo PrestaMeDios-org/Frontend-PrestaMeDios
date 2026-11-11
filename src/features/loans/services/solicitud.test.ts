@@ -5,6 +5,7 @@ import type { ItemCarrito } from "./carrito"
 import {
   aSolicitudNueva,
   diasCorridos,
+  esFinDeSemana,
   fechaHoyLab,
   formularioInicial,
   instanteLab,
@@ -210,5 +211,17 @@ describe("mensajeDeErrorSolicitud", () => {
 
   it("un error de red no es un ApiError", () => {
     expect(mensajeDeErrorSolicitud(new TypeError("fetch failed"), items)).toMatch(/conexión/)
+  })
+})
+
+describe("esFinDeSemana", () => {
+  it("marca sábado y domingo", () => {
+    expect(esFinDeSemana("2026-11-14")).toBe(true) // sábado
+    expect(esFinDeSemana("2026-11-15")).toBe(true) // domingo
+  })
+  it("no marca días de semana ni una fecha vacía", () => {
+    expect(esFinDeSemana("2026-11-13")).toBe(false) // viernes
+    expect(esFinDeSemana("2026-11-16")).toBe(false) // lunes
+    expect(esFinDeSemana("")).toBe(false)
   })
 })

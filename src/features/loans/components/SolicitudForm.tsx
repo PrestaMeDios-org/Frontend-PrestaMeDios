@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react"
 import { Button } from "../../../components/ui/Button"
-import { Alert, Field, SelectField, TextField, useInputStyle } from "../../../components/ui/Form"
+import { Alert, Field, SelectField, useInputStyle } from "../../../components/ui/Form"
 import { ApiError, mensajeDeError } from "../../../lib/api"
 import { useC } from "../../../theme"
 import { useUsuario } from "../../auth/AuthContext"
@@ -10,6 +10,7 @@ import { crearOrden, obtenerReglas, subirAval } from "../services/loansApi"
 import {
   AVAL_MAX_MB,
   aSolicitudNueva,
+  esFinDeSemana,
   fechaHoyLab,
   formularioInicial,
   limiteDias,
@@ -74,8 +75,8 @@ export function SolicitudForm({ onClose, onVerSolicitudes }: Props) {
   const errores = form && contexto && intentado ? validarSolicitud(form, contexto) : {}
   const horas = reglas ? opcionesDeHora(reglas.horarioApertura, reglas.horarioCierre) : []
   const hoy = fechaHoyLab()
-  const estiloFecha = useInputStyle(false)
-  const estiloFechaInvalida = useInputStyle(true)
+  const estiloCampo = useInputStyle(false)
+  const estiloCampoInvalido = useInputStyle(true)
 
   const cambiar = <K extends keyof FormularioSolicitud>(campo: K, valor: FormularioSolicitud[K]) => {
     setForm((f) => f && { ...f, [campo]: valor })
@@ -166,7 +167,7 @@ export function SolicitudForm({ onClose, onVerSolicitudes }: Props) {
                 value={form.fechaRetiro}
                 aria-invalid={Boolean(errores.fechaRetiro)}
                 onChange={(e) => cambiar("fechaRetiro", e.target.value)}
-                style={errores.fechaRetiro ? estiloFechaInvalida : estiloFecha}
+                style={errores.fechaRetiro ? estiloCampoInvalido : estiloCampo}
               />
             </Field>
             <SelectField
@@ -183,7 +184,7 @@ export function SolicitudForm({ onClose, onVerSolicitudes }: Props) {
                 value={form.fechaDevolucion}
                 aria-invalid={Boolean(errores.fechaDevolucion)}
                 onChange={(e) => cambiar("fechaDevolucion", e.target.value)}
-                style={errores.fechaDevolucion ? estiloFechaInvalida : estiloFecha}
+                style={errores.fechaDevolucion ? estiloCampoInvalido : estiloCampo}
               />
             </Field>
             <SelectField
@@ -195,15 +196,33 @@ export function SolicitudForm({ onClose, onVerSolicitudes }: Props) {
             />
           </div>
 
+          {(esFinDeSemana(form.fechaRetiro) || esFinDeSemana(form.fechaDevolucion)) && (
+            <Alert tipo="info">
+              El laboratorio normalmente no atiende sábados ni domingos. Si elegís esos días, es probable
+              que el administrador te pida otra fecha.
+            </Alert>
+          )}
+
           {requiereAsignatura && (
-            <TextField
+            <Field
               label="Código de asignatura"
-              type="number"
-              value={form.asignatura}
-              onChange={(v) => cambiar("asignatura", v)}
               error={errores.asignatura}
               hint="Provisorio: el código numérico de la asignatura, hasta que el sistema tenga el catálogo de asignaturas."
-            />
+            >
+              {(descripcionId) => (
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  value={form.asignatura}
+                  aria-invalid={Boolean(errores.asignatura)}
+                  aria-describedby={descripcionId}
+                  onChange={(e) => cambiar("asignatura", e.target.value)}
+                  style={errores.asignatura ? estiloCampoInvalido : estiloCampo}
+                />
+              )}
+            </Field>
           )}
 
           {carrito.requiereAval && (

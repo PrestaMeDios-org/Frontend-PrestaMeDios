@@ -48,3 +48,11 @@ export function resumenDeLineas(
     cantidad,
   }))
 }
+
+const DIA_LAB = new Intl.DateTimeFormat("en-US", { timeZone: ZONA_LAB, weekday: "short" })
+
+/** ¿El instante cae en sábado o domingo en la hora del laboratorio? (sólo para avisar) */
+export function caeEnFinDeSemana(fecha: Date): boolean {
+  const dia = DIA_LAB.format(fecha)
+  return dia === "Sat" || dia === "Sun"
+}

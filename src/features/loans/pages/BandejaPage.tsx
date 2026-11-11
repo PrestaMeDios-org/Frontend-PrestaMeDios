@@ -9,7 +9,7 @@ import { listarEquipamiento } from "../../inventory/services/inventoryApi"
 import { AprobarOrdenModal } from "../components/AprobarOrdenModal"
 import { MotivoModal } from "../components/MotivoModal"
 import { etiquetasDelStock, mensajeDeErrorValidacion, retiroVencido } from "../services/bandeja"
-import { ESTADO_ORDEN_LABEL, fechaLab, resumenDeLineas } from "../services/formato"
+import { caeEnFinDeSemana, ESTADO_ORDEN_LABEL, fechaLab, resumenDeLineas } from "../services/formato"
 import { cancelarOrden, descargarAval, listarBandeja, rechazarOrden } from "../services/loansApi"
 import { ESTADOS_ORDEN, type EstadoOrden, type Orden } from "../types"
 
@@ -125,6 +125,11 @@ export function BandejaPage() {
       {ordenes?.map((orden) => {
         const vencido = retiroVencido(orden)
         const hayEntregas = orden.lineas.some((l) => l.estado === "entregado")
+        const finDeSemana =
+          orden.estado === "pendiente" &&
+          orden.retiro !== null &&
+          orden.devolucion !== null &&
+          (caeEnFinDeSemana(orden.retiro) || caeEnFinDeSemana(orden.devolucion))
         return (
           <article
             key={orden.id}
@@ -136,6 +141,7 @@ export function BandejaPage() {
               </span>
               <Badge label={ESTADO_ORDEN_LABEL[orden.estado]} {...colores[orden.estado]} />
               {vencido && <Badge label="Retiro vencido" color={C.occupied} bg={C.occupiedBg} />}
+              {finDeSemana && <Badge label="Fin de semana" color={C.pending} bg={C.pendingBg} />}
               {orden.demorado && <Badge label="Demorado" color={C.occupied} bg={C.occupiedBg} />}
               <span style={{ ...tenue, marginLeft: "auto" }}>
                 {orden.sede} · pedida el {fechaLab(orden.fechaSolicitud)}

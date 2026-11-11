@@ -15,9 +15,9 @@ import {
   type FormularioAjuste,
   type SeleccionUnidades,
 } from "../services/bandeja"
-import { fechaLab } from "../services/formato"
+import { caeEnFinDeSemana, fechaLab } from "../services/formato"
 import { aprobarOrden, obtenerReglas, obtenerUnidadesLibres } from "../services/loansApi"
-import { fechaHoyLab, opcionesDeHora } from "../services/solicitud"
+import { esFinDeSemana, fechaHoyLab, opcionesDeHora } from "../services/solicitud"
 import type { LineaUnidadesLibres, Orden, Reglas } from "../types"
 
 interface Props {
@@ -111,6 +111,12 @@ export function AprobarOrdenModal({ orden, nombres, unidades, onClose, onAprobad
       {vencido && (
         <Alert tipo="info">El retiro pedido ya pasó: para aprobarla, acordá un horario nuevo con el solicitante.</Alert>
       )}
+      {!ajustar && orden.retiro && orden.devolucion && (caeEnFinDeSemana(orden.retiro) || caeEnFinDeSemana(orden.devolucion)) && (
+        <Alert tipo="info">
+          El retiro o la devolución pedidos caen en fin de semana, cuando el laboratorio normalmente no atiende.
+          Podés aprobarla con otro horario o rechazarla.
+        </Alert>
+      )}
 
       {lineas === null ? (
         !error && <p style={tenue}>Buscando unidades libres…</p>
@@ -164,6 +170,10 @@ export function AprobarOrdenModal({ orden, nombres, unidades, onClose, onAprobad
             options={horas.map((h) => ({ value: h, label: h }))}
           />
         </div>
+      )}
+
+      {ajustar && (esFinDeSemana(ajuste.fechaRetiro) || esFinDeSemana(ajuste.fechaDevolucion)) && (
+        <Alert tipo="info">El nuevo horario cae en fin de semana, cuando el laboratorio normalmente no atiende.</Alert>
       )}
 
       {error && <Alert>{error}</Alert>}

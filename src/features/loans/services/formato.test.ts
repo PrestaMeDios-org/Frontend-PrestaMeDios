@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { LineaOrden } from "../types"
-import { fechaLab, resumenDeLineas } from "./formato"
+import { caeEnFinDeSemana, fechaLab, resumenDeLineas } from "./formato"
 
 const linea = (equipamientoId: number, id = 1): LineaOrden => ({
   id,
@@ -25,5 +25,18 @@ describe("resumenDeLineas", () => {
       { equipamientoId: 12, nombre: "Cámara Sony", cantidad: 2 },
       { equipamientoId: 7, nombre: "Equipo #7", cantidad: 1 },
     ])
+  })
+})
+
+describe("caeEnFinDeSemana", () => {
+  it("usa el día del laboratorio, no el UTC", () => {
+    // Sábado 14/11 a las 22:00 en Ushuaia es domingo 15/11 a la 01:00 UTC.
+    expect(caeEnFinDeSemana(new Date("2026-11-15T01:00:00Z"))).toBe(true)
+    // Domingo 15/11 a las 22:00 en Ushuaia es lunes en UTC: sigue siendo fin de semana.
+    expect(caeEnFinDeSemana(new Date("2026-11-16T01:00:00Z"))).toBe(true)
+    // Viernes 13/11 a las 22:00 en Ushuaia ya es sábado en UTC: no es fin de semana.
+    expect(caeEnFinDeSemana(new Date("2026-11-14T01:00:00Z"))).toBe(false)
+    // Lunes 16/11 a las 22:00 en Ushuaia es martes en UTC.
+    expect(caeEnFinDeSemana(new Date("2026-11-17T01:00:00Z"))).toBe(false)
   })
 })

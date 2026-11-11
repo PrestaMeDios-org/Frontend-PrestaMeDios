@@ -70,6 +70,16 @@ const aMinutos = (hora: string) => {
 const aHora = (minutos: number) =>
   `${String(Math.floor(minutos / 60)).padStart(2, "0")}:${String(minutos % 60).padStart(2, "0")}`
 
+/**
+ * ¿La fecha ("AAAA-MM-DD") cae en sábado o domingo? Sólo para avisar: todavía no hay una
+ * regla de días de atención (pregunta 1 de SPEC-05 §15.2, D-09 de SPEC-09).
+ */
+export function esFinDeSemana(fecha: string): boolean {
+  if (!fecha) return false
+  const dia = new Date(`${fecha}T00:00:00Z`).getUTCDay()
+  return dia === 0 || dia === 6
+}
+
 /** Horas elegibles entre la apertura y el cierre, ambas incluidas (RN-L04, EC-L03). */
 export function opcionesDeHora(apertura: string, cierre: string, pasoMin = 30): string[] {
   const opciones: string[] = []
