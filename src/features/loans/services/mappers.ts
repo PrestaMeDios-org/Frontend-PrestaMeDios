@@ -66,6 +66,7 @@ export function toOrden(dto: OrdenPedidoDTO): Orden {
     motivoResolucion: dto.motivo_resolucion,
     observacionDocente: dto.observacion_docente,
     esRenovado: dto.es_renovado,
+    avalArchivoId: dto.aval_archivo_id ?? null,
     retiro: masTemprana(lineas.map((l) => l.retiro)),
     devolucion: masTardia(lineas.map((l) => l.devolucion)),
     lineas,

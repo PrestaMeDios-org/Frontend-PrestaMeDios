@@ -66,6 +66,8 @@ export interface OrdenPedidoDTO {
   observacion_docente: string | null
   motivo_resolucion: string | null
   es_renovado: boolean
+  /** PDF de aval de alta gama (SPEC-05 v1.0.2). Opcional para tolerar respuestas viejas. */
+  aval_archivo_id?: string | null
   resuelto_en: string | null
   solicitante: SolicitanteResumenDTO | null
   detalles: DetallePrestamoDTO[]
@@ -148,6 +150,8 @@ export interface Orden {
   motivoResolucion: string | null
   observacionDocente: string | null
   esRenovado: boolean
+  /** Id del PDF de aval; se descarga con `descargarAval`. */
+  avalArchivoId: string | null
   /** El retiro más temprano de las líneas (todas comparten período salvo en un ajuste). */
   retiro: Date | null
   devolucion: Date | null

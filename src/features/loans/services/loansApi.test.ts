@@ -12,6 +12,8 @@ import {
   obtenerReglas,
   obtenerUnidadesLibres,
   rechazarOrden,
+  descargarAval,
+  subirAval,
 } from "./loansApi"
 
 const ordenDTO: OrdenPedidoDTO = {
@@ -198,5 +200,47 @@ describe("administración", () => {
     const fetchMock = responder({ ...ordenDTO, estado: "cancelada" })
     await cancelarOrden(5)
     expect(llamada(fetchMock).body).toEqual({ estado: "cancelada" })
+  })
+})
+
+describe("subirAval", () => {
+  it("sube el PDF a files como AVAL_PRESTAMO y devuelve su id", async () => {
+    tokenStore.set("token-de-prueba")
+    const fetchMock = responder({ id: "3f2b6c1e-8a4d-4f7e-9b1a-2c5d7e9f0a1b" }, 201)
+    const archivo = new File(["%PDF-1.4"], "resolucion.pdf", { type: "application/pdf" })
+
+    const id = await subirAval(archivo)
+
+    expect(id).toBe("3f2b6c1e-8a4d-4f7e-9b1a-2c5d7e9f0a1b")
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toMatch(/\/api\/v1\/files\/archivos$/)
+    expect(init.method).toBe("POST")
+    const form = init.body as FormData
+    expect(form.get("proposito")).toBe("AVAL_PRESTAMO")
+    expect((form.get("archivo") as File).name).toBe("resolucion.pdf")
+  })
+
+  it("propaga el error de files", async () => {
+    responder({ detail: "El tipo de archivo no está permitido.", code: "TIPO_ARCHIVO_NO_PERMITIDO" }, 422)
+    const archivo = new File(["x"], "foto.jpg", { type: "image/jpeg" })
+    await expect(subirAval(archivo)).rejects.toMatchObject({ code: "TIPO_ARCHIVO_NO_PERMITIDO" })
+  })
+})
+
+describe("descargarAval", () => {
+  it("pide el PDF de la orden como blob", async () => {
+    tokenStore.set("token-de-prueba")
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(new Blob(["%PDF-1.4"], { type: "application/pdf" }), {
+        status: 200,
+        headers: { "Content-Type": "application/pdf" },
+      }),
+    )
+
+    const blob = await descargarAval(5)
+
+    expect(blob.type).toBe("application/pdf")
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toMatch(/\/api\/v1\/loans\/ordenes\/5\/aval$/)
   })
 })

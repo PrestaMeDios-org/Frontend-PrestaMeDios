@@ -3,6 +3,13 @@
 
 export const ZONA_LAB = "America/Argentina/Ushuaia"
 
+/**
+ * Desfase fijo de `ZONA_LAB` respecto de UTC (Argentina no usa horario de verano), para
+ * armar instantes ISO con zona, por ejemplo `2026-11-12T10:00:00-03:00`. Si alguna vez
+ * cambia la zona, se cambian los dos juntos.
+ */
+export const DESFASE_LAB = "-03:00"
+
 const partesLab = new Intl.DateTimeFormat("en-CA", {
   timeZone: ZONA_LAB,
   year: "numeric",
