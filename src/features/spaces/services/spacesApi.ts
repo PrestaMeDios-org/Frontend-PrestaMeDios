@@ -1,6 +1,6 @@
 import { apiRequest } from "../../../lib/api"
 import type { Sede } from "../../auth/types"
-import type { Bloqueo, Disponibilidad, Espacio, EstadoReserva, Reserva } from "../types"
+import type { Bloqueo, Disponibilidad, Espacio, EstadoBloqueo, EstadoReserva, Reserva } from "../types"
 
 // Contrato de SPEC-02 §3.2: sede como texto, solicitante tomado del token,
 // disponibilidad sin identidad de otros usuarios y horario desde config.
@@ -29,6 +29,8 @@ type ReservaApi = {
   hora_fin: string
   estado_reserva: EstadoReserva
   motivo?: string | null
+  solicitante_nombre?: string | null
+  solicitante_apellido?: string | null
 }
 
 type BloqueoApi = {
@@ -39,6 +41,8 @@ type BloqueoApi = {
   hora_inicio?: string | null
   hora_fin?: string | null
   motivo: string
+  id_grupo?: string | null
+  estado?: EstadoBloqueo
 }
 
 type DisponibilidadApi = {
@@ -67,6 +71,8 @@ const mapReserva = (r: ReservaApi): Reserva => ({
   horaFin: hhmm(r.hora_fin),
   estado: r.estado_reserva,
   motivo: r.motivo ?? undefined,
+  solicitanteNombre: r.solicitante_nombre ?? null,
+  solicitanteApellido: r.solicitante_apellido ?? null,
 })
 
 const mapBloqueo = (b: BloqueoApi): Bloqueo => ({
@@ -77,6 +83,8 @@ const mapBloqueo = (b: BloqueoApi): Bloqueo => ({
   horaInicio: b.hora_inicio ? hhmm(b.hora_inicio) : undefined,
   horaFin: b.hora_fin ? hhmm(b.hora_fin) : undefined,
   motivo: b.motivo,
+  idGrupo: b.id_grupo ?? null,
+  estado: b.estado ?? "Activo",
 })
 
 export async function getEspacios(sede?: Sede | null): Promise<Espacio[]> {
@@ -150,4 +158,26 @@ export async function createBloqueo(payload: {
   motivo: string
 }): Promise<Bloqueo> {
   return mapBloqueo(await request<BloqueoApi>("/bloqueos", { method: "POST", json: payload }))
+}
+
+export async function createBloqueoGeneral(payload: {
+  fecha_inicio: string
+  fecha_fin: string
+  hora_inicio?: string
+  hora_fin?: string
+  motivo: string
+}): Promise<Bloqueo[]> {
+  return (await request<BloqueoApi[]>("/bloqueos/general", { method: "POST", json: payload })).map(mapBloqueo)
+}
+
+/**
+ * Deshace un bloqueo sin borrarlo (SPEC-08 D-S01). Si era parte de un bloqueo general,
+ * el backend revierte el grupo entero y devuelve todas sus filas; siempre devuelve una lista.
+ */
+export async function revertirBloqueo(idBloqueo: number): Promise<Bloqueo[]> {
+  const respuesta = await request<BloqueoApi | BloqueoApi[]>(`/bloqueos/${idBloqueo}/estado`, {
+    method: "PATCH",
+    json: { nuevo_estado: "Revertido" },
+  })
+  return (Array.isArray(respuesta) ? respuesta : [respuesta]).map(mapBloqueo)
 }

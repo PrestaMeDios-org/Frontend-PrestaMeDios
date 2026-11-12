@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { ApiError, apiRequest, esSesionInvalida, onSessionExpired, parseError, tokenStore } from "./api"
+import {
+  ApiError,
+  apiRequest,
+  descargarArchivo,
+  esSesionInvalida,
+  onSessionExpired,
+  parseError,
+  tokenStore,
+} from "./api"
 
 const respuesta = (status: number, body: unknown) =>
   new Response(body === undefined ? null : JSON.stringify(body), { status })
@@ -89,5 +97,40 @@ describe("apiRequest", () => {
   it("informa la falta de conexión", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("fetch failed"))
     await expect(apiRequest("/x")).rejects.toMatchObject({ code: "SIN_CONEXION", status: 0 })
+  })
+})
+
+describe("archivos (SPEC-03 §6.6)", () => {
+  it("envía FormData sin Content-Type JSON", async () => {
+    tokenStore.set("abc")
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(respuesta(200, { id: "x" }))
+    const form = new FormData()
+    form.append("archivo", new Blob(["%PDF-1.4"], { type: "application/pdf" }), "aval.pdf")
+    await apiRequest("/api/v1/files/archivos", { method: "POST", form })
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init?.body).toBe(form)
+    expect(init?.headers).toMatchObject({ Authorization: "Bearer abc" })
+    expect(init?.headers).not.toHaveProperty("Content-Type")
+  })
+
+  it("descarga como Blob con el token en el header, nunca en la URL", async () => {
+    tokenStore.set("abc")
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(new Blob(["jpeg"], { type: "image/jpeg" }), { status: 200 }))
+    const blob = await descargarArchivo("3f2b8c1e-5d4a-4b6f-9a1e-2c7d8e9f0a1b")
+    expect(blob).toBeInstanceOf(Blob)
+    expect(await blob.text()).toBe("jpeg")
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(String(url)).toMatch(/\/api\/v1\/files\/archivos\/3f2b8c1e-5d4a-4b6f-9a1e-2c7d8e9f0a1b\/contenido$/)
+    expect(String(url)).not.toContain("abc")
+    expect(init?.headers).toMatchObject({ Authorization: "Bearer abc" })
+  })
+
+  it("una descarga denegada es un ApiError", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      respuesta(404, { detail: "Archivo no encontrado.", code: "ARCHIVO_NO_ENCONTRADO" }),
+    )
+    await expect(descargarArchivo("x")).rejects.toMatchObject({ status: 404, code: "ARCHIVO_NO_ENCONTRADO" })
   })
 })

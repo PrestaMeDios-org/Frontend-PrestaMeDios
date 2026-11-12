@@ -3,15 +3,25 @@ import { C_LIGHT, C_DARK, ThemeCtx, useC } from "./theme"
 import type { Screen } from "./types"
 import { MainLayout } from "./components/layout/MainLayout"
 import { CatalogPage } from "./features/inventory/pages/CatalogPage"
+import { StockPage } from "./features/inventory/pages/StockPage"
 import { SpacesPage } from "./features/spaces/pages/SpacesPage"
 import { AuthProvider, SedeProvider, useAuth, useSede, useUsuario } from "./features/auth/AuthContext"
 import { esAdmin, iniciales, ROL_LABEL, uiRole } from "./features/auth/roles"
 import { LoginPage } from "./features/auth/pages/LoginPage"
 import { RegisterPage } from "./features/auth/pages/RegisterPage"
+import { RecoverPasswordPage } from "./features/auth/pages/RecoverPasswordPage"
+import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage"
+import { esRutaRestablecer, leerTokenDeRecuperacion, limpiarFragmento } from "./features/auth/recuperacion"
 import { ChangePasswordPage } from "./features/auth/pages/ChangePasswordForm"
 import { ProfilePage } from "./features/users/pages/ProfilePage"
 import { UsersPage } from "./features/users/pages/UsersPage"
 import { ParametersPage } from "./features/config/pages/ParametersPage"
+import { NewsPage } from "./features/notifications/pages/NewsPage"
+import { CarritoProvider, useCarrito } from "./features/loans/CarritoContext"
+import { CarritoPanel } from "./features/loans/components/CarritoPanel"
+import { SolicitudForm } from "./features/loans/components/SolicitudForm"
+import { MisSolicitudesPage } from "./features/loans/pages/MisSolicitudesPage"
+import { BandejaPage } from "./features/loans/pages/BandejaPage"
 
 const TITLES: Record<Screen, { title: string; subtitle?: string }> = {
   catalog: {
@@ -78,23 +88,60 @@ export default function App() {
   )
 }
 
-/** Sin sesión → login/registro; con cambio obligatorio → cambio de contraseña; si no, la app. */
-function AuthGate({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void }) {
-  const { usuario, cargando } = useAuth()
-  const [registro, setRegistro] = useState(false)
+/**
+ * Enlace de recuperación (SPEC-03 RN-47), leído una sola vez al cargar el módulo y quitado
+ * de la barra de direcciones: `undefined` si no es `#/restablecer`, `null` si el token no
+ * sirve. Fuera de React para que el doble render de `StrictMode` no lo pierda.
+ */
+function leerEnlaceDeRecuperacion(): string | null | undefined {
+  const { hash } = window.location
+  if (!esRutaRestablecer(hash)) return undefined
+  const token = leerTokenDeRecuperacion(hash)
+  limpiarFragmento()
+  return token
+}
+const ENLACE_RECUPERACION = typeof window !== "undefined" ? leerEnlaceDeRecuperacion() : undefined
 
+type PantallaPublica = "login" | "registro" | "recuperar" | "restablecer"
+
+/** Sin sesión → pantallas públicas; con cambio obligatorio → cambio de contraseña; si no, la app. */
+function AuthGate({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void }) {
+  const { usuario, cargando, logout } = useAuth()
+  const [publica, setPublica] = useState<PantallaPublica>(
+    ENLACE_RECUPERACION !== undefined ? "restablecer" : "login",
+  )
+
+  // El enlace del correo se muestra fuera del layout, haya o no sesión abierta (SPEC-03 §5.5).
+  if (publica === "restablecer") {
+    return (
+      <ResetPasswordPage
+        token={ENLACE_RECUPERACION ?? null}
+        onListo={(aviso) => {
+          logout(aviso) // el backend cerró todas las sesiones (RN-52)
+          setPublica("login")
+        }}
+        onPedirOtro={() => setPublica("recuperar")}
+      />
+    )
+  }
   if (cargando) return <Cargando />
   if (!usuario) {
-    return registro ? (
-      <RegisterPage onVolver={() => setRegistro(false)} />
-    ) : (
-      <LoginPage onRegistrarse={() => setRegistro(true)} />
+    if (publica === "registro") return <RegisterPage onVolver={() => setPublica("login")} />
+    if (publica === "recuperar") return <RecoverPasswordPage onVolver={() => setPublica("login")} />
+    return (
+      <LoginPage
+        onRegistrarse={() => setPublica("registro")}
+        onOlvidoPassword={() => setPublica("recuperar")}
+      />
     )
   }
   if (usuario.debe_cambiar_password) return <ChangePasswordPage />
   return (
     <SedeProvider>
-      <Shell dark={dark} onDarkToggle={onDarkToggle} />
+      {/* `key`: otro usuario empieza con el carrito vacío. */}
+      <CarritoProvider key={usuario.id}>
+        <Shell dark={dark} onDarkToggle={onDarkToggle} />
+      </CarritoProvider>
     </SedeProvider>
   )
 }
@@ -106,6 +153,11 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
   const { sedeVista, puedeElegir, setSedeVista } = useSede()
   const role = uiRole(usuario.rol)
   const [screen, setScreen] = useState<Screen>("catalog")
+  const carrito = useCarrito()
+  const [carritoAbierto, setCarritoAbierto] = useState(false)
+  const [solicitudAbierta, setSolicitudAbierta] = useState(false)
+  // Solo estudiantes y docentes piden equipos (SPEC-05 PRE-03).
+  const puedePedir = role === "student" || role === "teacher"
   const visible: Screen = SOLO_ADMIN.includes(screen) && !esAdmin(usuario.rol) ? "catalog" : screen
 
   const { title, subtitle } = TITLES[visible]
@@ -120,6 +172,7 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
         name: `${usuario.nombre} ${usuario.apellido}`,
         sub: `${ROL_LABEL[usuario.rol]} · ${usuario.sede ?? "Ambas sedes"}`,
         email: usuario.email,
+        fotoId: usuario.foto_id,
       }}
       sede={{ vista: sedeVista, puedeElegir, onChange: setSedeVista }}
       onLogout={() => logout()}
@@ -129,18 +182,55 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
       onDarkToggle={onDarkToggle}
       onProfile={() => setScreen("profile")}
       onHelp={() => {}}
+      cartCount={puedePedir ? carrito.total : 0}
+      cartType={carrito.tipo}
+      onCartOpen={() => setCarritoAbierto(true)}
     >
-      {visible === "catalog" && <CatalogPage role={role} userSede={sedeVista ?? undefined} />}
+      {visible === "catalog" && (
+        <CatalogPage
+          role={role}
+          userSede={sedeVista ?? undefined}
+          onAddToCart={puedePedir ? carrito.agregar : undefined}
+        />
+      )}
+      {carritoAbierto && (
+        <CarritoPanel
+          onClose={() => setCarritoAbierto(false)}
+          onContinuar={
+            puedePedir
+              ? () => {
+                  setCarritoAbierto(false)
+                  setSolicitudAbierta(true)
+                }
+              : undefined
+          }
+        />
+      )}
+      {solicitudAbierta && (
+        <SolicitudForm
+          onClose={() => setSolicitudAbierta(false)}
+          onVerSolicitudes={() => {
+            setSolicitudAbierta(false)
+            setScreen("status")
+          }}
+        />
+      )}
+      {visible === "status" && puedePedir && <MisSolicitudesPage />}
+      {visible === "admin-validations" && esAdmin(usuario.rol) && <BandejaPage />}
+      {visible === "admin-stock" && <StockPage />}
       {visible === "spaces" && <SpacesPage key={sedeVista ?? "ambas"} role={role} />}
       {visible === "profile" && <ProfilePage />}
       {visible === "users" && <UsersPage />}
       {visible === "parameters" && <ParametersPage />}
+      {visible === "news" && <NewsPage />}
 
       {/*
         Módulos en desarrollo por el equipo (loans, novedades, etc.): se
         renderizan aquí según `screen`, siguiendo la misma estructura.
       */}
-      {!["catalog", "spaces", "profile", "users", "parameters"].includes(visible) && (
+      {!["catalog", "admin-stock", "spaces", "profile", "users", "parameters", "news"].includes(visible) &&
+        !(visible === "status" && puedePedir) &&
+        visible !== "admin-validations" && (
         <div
           style={{
             flex: 1,

@@ -4,9 +4,17 @@ import { Alert, Card, Grid, SelectField, TextField } from "../../../components/u
 import { useC } from "../../../theme"
 import { ApiError, mensajeDeError } from "../../../lib/api"
 import { useSede, useUsuario } from "../../auth/AuthContext"
-import { errorPassword, ESTADO_LABEL, ROL_LABEL } from "../../auth/roles"
+import { errorPassword, ESTADO_LABEL, iniciales, ROL_LABEL } from "../../auth/roles"
 import { SEDES } from "../../auth/types"
-import { cambiarEstado, crearUsuario, editarUsuario, listarUsuarios, obtenerUsuario } from "../services/usersApi"
+import {
+  cambiarEstado,
+  crearUsuario,
+  editarUsuario,
+  listarUsuarios,
+  obtenerUsuario,
+  quitarFotoDeUsuario,
+} from "../services/usersApi"
+import { Avatar } from "../../../components/ui/Avatar"
 import type {
   EstadoCuenta,
   EstadoDestino,
@@ -437,6 +445,20 @@ function EditarUsuario({
   })
   const [campos, setCampos] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
+  const [fotoId, setFotoId] = useState(usuario.foto_id)
+  const [avisoFoto, setAvisoFoto] = useState<string | null>(null)
+  // RN-64: el ADMIN_LOCAL sólo quita fotos de estudiantes y docentes (el backend lo exige igual).
+  const puedeQuitarFoto = esSuper || usuario.rol === "ESTUDIANTE" || usuario.rol === "DOCENTE"
+  const quitarFoto = async () => {
+    setError(null)
+    setAvisoFoto(null)
+    try {
+      setFotoId((await quitarFotoDeUsuario(usuario.id)).foto_id)
+      setAvisoFoto("Foto quitada.")
+    } catch (e) {
+      setError(mensajeDeError(e, "No se pudo quitar la foto."))
+    }
+  }
   const set = <K extends keyof typeof d>(k: K) => (v: (typeof d)[K]) => setD((p) => ({ ...p, [k]: v }))
   const roles: RolUsuario[] = esSuper ? ROLES : ["ESTUDIANTE", "DOCENTE"]
 
@@ -465,6 +487,15 @@ function EditarUsuario({
   return (
     <Card title={`Editar: ${usuario.apellido}, ${usuario.nombre}`}>
       {error && <Alert>{error}</Alert>}
+      {avisoFoto && <Alert tipo="ok">{avisoFoto}</Alert>}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <Avatar fotoId={fotoId} initials={iniciales(usuario.nombre, usuario.apellido)} size={56} radius={28} />
+        {fotoId && puedeQuitarFoto && (
+          <Button variant="ghost" onClick={quitarFoto}>
+            Quitar foto
+          </Button>
+        )}
+      </div>
       {usuario.motivo_estado && (
         <Alert tipo="info">
           Último motivo de cambio de estado: {usuario.motivo_estado}

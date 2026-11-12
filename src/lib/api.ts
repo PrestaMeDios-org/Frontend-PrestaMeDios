@@ -110,12 +110,16 @@ export function esSesionInvalida(error: ApiError, teniaToken: boolean): boolean 
 export type ApiInit = Omit<RequestInit, "body"> & {
   /** Cuerpo serializado como JSON. */
   json?: unknown
+  /** Cuerpo multipart (subida de archivos). El navegador fija el `Content-Type` con su límite. */
+  form?: FormData
+  /** `"blob"` para descargar archivos (SPEC-03 §6.6). Por defecto, JSON. */
+  responseType?: "json" | "blob"
   /** `false` para no enviar el token (login, registro). */
   auth?: boolean
 }
 
 export async function apiRequest<T>(path: string, init: ApiInit = {}): Promise<T> {
-  const { json, auth = true, headers, ...rest } = init
+  const { json, form, responseType = "json", auth = true, headers, ...rest } = init
   const token = auth ? tokenStore.get() : null
   const url = /^https?:\/\//.test(path) ? path : `${API_URL}${path}`
 
@@ -128,7 +132,7 @@ export async function apiRequest<T>(path: string, init: ApiInit = {}): Promise<T
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },
-      body: json !== undefined ? JSON.stringify(json) : undefined,
+      body: json !== undefined ? JSON.stringify(json) : form,
     })
   } catch {
     throw new ApiError(
@@ -145,9 +149,21 @@ export async function apiRequest<T>(path: string, init: ApiInit = {}): Promise<T
   }
 
   if (res.status === 204) return undefined as T
+  if (responseType === "blob") return (await res.blob()) as T
   const texto = await res.text()
   return (texto ? JSON.parse(texto) : undefined) as T
 }
+
+/**
+ * Descarga un archivo de `files` con el header `Authorization` (SPEC-03 §6.6).
+ *
+ * El token vive en `sessionStorage` y no viaja con `<img src>` ni con un enlace: por eso
+ * se baja como `Blob` y se muestra con `URL.createObjectURL` (ver `useArchivoUrl`).
+ */
+export const descargarArchivo = (id: string) =>
+  apiRequest<Blob>(`/api/v1/files/archivos/${encodeURIComponent(id)}/contenido`, {
+    responseType: "blob",
+  })
 
 /** Mensaje legible de cualquier error. */
 export function mensajeDeError(e: unknown, porDefecto = "Ocurrió un error inesperado."): string {

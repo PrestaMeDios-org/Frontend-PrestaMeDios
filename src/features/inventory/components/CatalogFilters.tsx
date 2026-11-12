@@ -22,6 +22,7 @@ export function CatalogFilters({
   counts,
   role,
   userSede,
+  puedeElegirSede = false,
   onNewEquipment,
 }: {
   search: string
@@ -38,7 +39,10 @@ export function CatalogFilters({
   availableCount: number
   counts: Record<string, number>
   role: Role
+  /** Sede fija del usuario; sólo se muestra si no puede elegir otra. */
   userSede?: string
+  /** Sólo el SUPERADMIN elige sede (GLO-01). */
+  puedeElegirSede?: boolean
   onNewEquipment?: () => void
 }) {
   const C = useC()
@@ -124,7 +128,7 @@ export function CatalogFilters({
             </button>
           ))}
         </div>
-        {(role === "student" || role === "teacher") && userSede && (
+        {!puedeElegirSede && userSede && (
           <div
             style={{
               display: "flex",
@@ -149,7 +153,7 @@ export function CatalogFilters({
             </span>
           </div>
         )}
-        {role !== "student" && role !== "teacher" && (
+        {puedeElegirSede && (
           <div style={{ position: "relative" }}>
             <select
               value={filterSede}

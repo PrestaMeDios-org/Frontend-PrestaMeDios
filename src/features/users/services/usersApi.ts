@@ -1,4 +1,5 @@
 import { apiRequest } from "../../../lib/api"
+import type { UsuarioPublicoDTO } from "../../auth/types"
 import type {
   EstadoDestino,
   FiltrosDirectorio,
@@ -9,6 +10,7 @@ import type {
 } from "../types"
 
 const BASE = "/api/v1/users"
+const AUTH = "/api/v1/auth"
 
 export function listarUsuarios(filtros: FiltrosDirectorio = {}): Promise<PaginaUsuariosDTO> {
   const params = new URLSearchParams()
@@ -32,3 +34,16 @@ export const cambiarEstado = (id: number, nuevo_estado: EstadoDestino, motivo?: 
     method: "PATCH",
     json: { nuevo_estado, ...(motivo ? { motivo } : {}) },
   })
+
+/** Quita la foto de una cuenta (RN-64: el `ADMIN_LOCAL`, sólo de estudiantes y docentes). */
+export const quitarFotoDeUsuario = (id: number) =>
+  apiRequest<UsuarioDetalleDTO>(`${BASE}/${id}/foto`, { method: "DELETE" })
+
+/** Sube o reemplaza la foto propia (SPEC-03 §6.3): multipart con el campo `archivo`. */
+export const subirFoto = (archivo: File) => {
+  const form = new FormData()
+  form.append("archivo", archivo)
+  return apiRequest<UsuarioPublicoDTO>(`${AUTH}/me/foto`, { method: "PUT", form })
+}
+
+export const quitarFoto = () => apiRequest<UsuarioPublicoDTO>(`${AUTH}/me/foto`, { method: "DELETE" })

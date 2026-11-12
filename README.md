@@ -4,7 +4,7 @@ Aplicación web del sistema de préstamos de equipamiento y reservas de espacios
 
 | | |
 | --- | --- |
-| **Requisitos (ERS IEEE 830)** | [`docs/ERS.md` en el repositorio del backend](https://github.com/PrestaMeDios-org/Backend-PrestaMeDios/blob/develop/docs/ERS.md) |
+| **Requisitos (ERS IEEE 830)** | [`docs/ERS.md` en el repositorio de documentación](https://github.com/PrestaMeDios-org/Docs-PrestaMeDios/blob/main/docs/ERS.md) |
 | **API** | [`Backend-PrestaMeDios`](https://github.com/PrestaMeDios-org/Backend-PrestaMeDios) · contrato en `http://localhost:8000/docs` |
 | **Stack** | React 19 · TypeScript 5 (strict) · Vite · Tailwind CSS 4 |
 
@@ -88,8 +88,9 @@ src/
     ├── auth/                   # sesión, login, registro, cambio de contraseña (USR-01, USR-05)
     ├── users/                  # mi perfil y gestión de usuarios (USR-03, USR-04)
     ├── config/                 # panel de parámetros globales (GLO-03)
-    ├── inventory/              # catálogo de equipamiento (PRE-01, PRE-02)
+    ├── inventory/              # catálogo y control de stock (PRE-01, PRE-02, PRE-12, PRE-14, PRE-19)
     ├── spaces/                 # calendario y reservas de espacios (RES-01…RES-05)
+    ├── notifications/          # Novedades: comunicados y portal (NOV-01, NOV-02); campanita (NOV-04, pendiente)
     └── loans/                  # préstamos (pendiente)
         ├── components/
         ├── pages/
@@ -102,8 +103,9 @@ src/
 | `auth` | Login, registro, sesión persistente en la pestaña y cambio obligatorio de contraseña |
 | `users` | Mi perfil; bandeja de aprobación, directorio, alta y edición de cuentas |
 | `config` | Panel de parámetros con control de versión e historial |
-| `inventory` | Catálogo con filtros (datos de ejemplo; cliente de API autenticado disponible) |
+| `inventory` | Conectado a la API: catálogo con búsqueda y filtros; para administradores, tabla de stock ordenable (`/admin-stock`) con unidades, estados (mantenimiento, baja), alta, edición y baja lógica. Estudiantes y docentes reciben una vista reducida. Pendiente (Fase B): disponibilidad por fechas e historial por unidad |
 | `spaces` | Calendario conectado a la API: reservas propias, aprobación y bloqueos |
+| `notifications` | Pantalla "Novedades" (`news`) conectada a la API: comunicados de la sede más los globales, con paginación; los administradores publican, editan, archivan y reactivan (el Superadministrador elige sede o "Global"). Pestaña con la información del laboratorio y el horario leído de los parámetros globales. Fechas siempre en la zona del laboratorio. Pendiente (Fase B): la campanita real |
 | `loans` | Pendiente |
 
 ---

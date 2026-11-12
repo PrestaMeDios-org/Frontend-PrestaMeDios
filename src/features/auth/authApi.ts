@@ -26,3 +26,26 @@ export const actualizarMe = (datos: PerfilUpdateDTO) =>
 
 export const cambiarPassword = (datos: CambioPasswordDTO) =>
   apiRequest<TokenResponseDTO>(`${BASE}/me/password`, { method: "POST", json: datos })
+
+// ─── Sesión (SPEC-03 §7.2) ────────────────────────────────────────────────────
+
+/** Cambia el token vigente por uno nuevo con el mismo inicio de sesión (RN-65). */
+export const renovarSesion = () => apiRequest<TokenResponseDTO>(`${BASE}/renovar`, { method: "POST" })
+
+/** Cierra todas las sesiones y devuelve un token nuevo para esta pestaña (RN-69). */
+export const cerrarTodasLasSesiones = () =>
+  apiRequest<TokenResponseDTO>(`${BASE}/me/sesiones/cerrar`, { method: "POST" })
+
+// ─── Recuperación de contraseña (SPEC-03 §5.3, USR-02) ───────────────────────
+// Públicos: no llevan token. La respuesta del pedido es siempre neutra (RN-44).
+
+export const solicitarRecuperacion = (email: string) =>
+  apiRequest<{ detail: string }>(`${BASE}/recuperacion`, { method: "POST", json: { email }, auth: false })
+
+export const confirmarRecuperacion = (token: string, password_nueva: string) =>
+  apiRequest<{ detail: string }>(`${BASE}/recuperacion/confirmar`, {
+    method: "POST",
+    json: { token, password_nueva },
+    auth: false,
+  })
+
