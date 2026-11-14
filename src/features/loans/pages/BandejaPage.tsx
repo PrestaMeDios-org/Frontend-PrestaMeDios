@@ -1,6 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react"
-import { Badge } from "../../../components/ui/Badge"
-import { Button } from "../../../components/ui/Button"
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react"
 import { Alert } from "../../../components/ui/Form"
 import { mensajeDeError } from "../../../lib/api"
 import { useC } from "../../../theme"
@@ -8,8 +6,10 @@ import { useSede } from "../../auth/AuthContext"
 import { listarEquipamiento } from "../../inventory/services/inventoryApi"
 import { AprobarOrdenModal } from "../components/AprobarOrdenModal"
 import { MotivoModal } from "../components/MotivoModal"
-import { etiquetasDelStock, mensajeDeErrorValidacion, retiroVencido } from "../services/bandeja"
-import { caeEnFinDeSemana, ESTADO_ORDEN_LABEL, fechaLab, resumenDeLineas } from "../services/formato"
+import { etiquetasDelStock, mensajeDeErrorValidacion } from "../services/bandeja"
+import { ESTADO_ORDEN_LABEL } from "../services/formato"
+import { BandejaTabla } from "../components/BandejaTabla"
+import { contarPorTipo, fichasDelStock, resumenBandeja, TIPO_LABEL, tipoDe, type FichaEquipo, type TipoSolicitud } from "../services/bandejaVista"
 import { cancelarOrden, descargarAval, listarBandeja, rechazarOrden } from "../services/loansApi"
 import { ESTADOS_ORDEN, type EstadoOrden, type Orden } from "../types"
 
@@ -29,6 +29,11 @@ export function BandejaPage() {
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [accion, setAccion] = useState<Accion | null>(null)
+  // SPEC-10 V-14: fichas del stock (imagen, código, alta gama), tipo elegido y resumen de arriba.
+  const [fichas, setFichas] = useState<Map<number, FichaEquipo>>(new Map())
+  const [tipo, setTipo] = useState<TipoSolicitud>("estudiante")
+  const [resumen, setResumen] = useState<{ pendientes: number; aprobadasHoy: number; conObservacion: number } | null>(null)
+  const [versionResumen, setVersionResumen] = useState(0)
 
   const cargar = useCallback(
     async (signal?: AbortSignal) => {
@@ -53,16 +58,36 @@ export function BandejaPage() {
     // Nombres de equipos y códigos de inventario de las unidades (vista completa del admin).
     const control = new AbortController()
     listarEquipamiento({ sede: sedeVista ?? undefined }, control.signal)
-      .then((equipos) => setStock(etiquetasDelStock(equipos)))
+      .then((equipos) => {
+        setStock(etiquetasDelStock(equipos))
+        setFichas(fichasDelStock(equipos))
+      })
       .catch(() => {})
     return () => control.abort()
   }, [sedeVista])
+
+  useEffect(() => {
+    // SPEC-10 V-14: las cifras de arriba salen de las listas que ya expone la API.
+    const control = new AbortController()
+    const sede = sedeVista ?? undefined
+    Promise.all([
+      listarBandeja({ estado: "pendiente", sede, limit: 100 }, control.signal),
+      listarBandeja({ estado: "aprobada", sede, limit: 100 }, control.signal),
+    ])
+      .then(([p, a]) => setResumen(resumenBandeja(p, a)))
+      .catch(() => {})
+    return () => control.abort()
+  }, [sedeVista, versionResumen])
 
   const terminar = (mensaje: string) => {
     setAccion(null)
     setAviso(mensaje)
     void cargar()
+    setVersionResumen((v) => v + 1)
   }
+
+  const conteo = useMemo(() => contarPorTipo(ordenes ?? [], fichas), [ordenes, fichas])
+  const visibles = useMemo(() => (ordenes ?? []).filter((o) => tipoDe(o, fichas) === tipo), [ordenes, fichas, tipo])
 
   const verAval = async (orden: Orden) => {
     // La ventana se abre antes de esperar la descarga, para que el navegador no la bloquee.
@@ -78,121 +103,152 @@ export function BandejaPage() {
     }
   }
 
-  const colores: Record<EstadoOrden, { color: string; bg: string }> = {
-    pendiente: { color: C.pending, bg: C.pendingBg },
-    aprobada: { color: C.available, bg: C.availableBg },
-    rechazada: { color: C.occupied, bg: C.occupiedBg },
-    cancelada: { color: C.textMuted, bg: C.surface },
-  }
   const texto: CSSProperties = { fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.text }
   const tenue: CSSProperties = { ...texto, fontSize: 12, color: C.textMuted }
 
+  const tarjeta = (cifra: number | string, etiqueta: string, color: string, bg: string) => (
+    <div
+      style={{
+        flex: "1 1 220px",
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        padding: "16px 18px",
+        background: C.card,
+        border: `1px solid ${C.border}`,
+        borderRadius: 16,
+      }}
+    >
+      <span
+        style={{
+          minWidth: 46,
+          height: 46,
+          padding: "0 10px",
+          borderRadius: 12,
+          background: bg,
+          color,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "'Outfit',sans-serif",
+          fontSize: 22,
+          fontWeight: 800,
+        }}
+      >
+        {cifra}
+      </span>
+      <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 14, fontWeight: 600, color: C.textMuted }}>{etiqueta}</span>
+    </div>
+  )
+
+  const pastilla = (t: TipoSolicitud) => {
+    const activa = tipo === t
+    return (
+      <button
+        key={t}
+        type="button"
+        aria-pressed={activa}
+        onClick={() => setTipo(t)}
+        // SPEC-10 V-14: mismo chip que los filtros de categoría del catálogo.
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "6px 13px",
+          borderRadius: 100,
+          border: `1.5px solid ${activa ? C.crimson : C.border}`,
+          background: activa ? C.crimson : C.card,
+          color: activa ? "white" : C.textMuted,
+          fontFamily: "'Outfit',sans-serif",
+          fontSize: 12.5,
+          fontWeight: 500,
+          cursor: "pointer",
+        }}
+      >
+        {TIPO_LABEL[t]}
+        <span
+          style={{
+            background: activa ? "rgba(255,255,255,0.22)" : C.bg,
+            borderRadius: 100,
+            padding: "0 5px",
+            fontSize: 10.5,
+            fontWeight: 700,
+          }}
+        >
+          {conteo[t]}
+        </span>
+      </button>
+    )
+  }
+
   return (
-    <div style={{ padding: "24px 28px", flex: 1, overflowY: "auto", display: "grid", gap: 12, alignContent: "start" }}>
-      <div role="tablist" style={{ display: "flex", gap: 4, borderBottom: `1px solid ${C.border}` }}>
-        {ESTADOS_ORDEN.map((e) => (
-          <button
-            key={e}
-            type="button"
-            role="tab"
-            aria-selected={estado === e}
-            onClick={() => {
-              setEstado(e)
-              setAviso(null)
-            }}
-            style={{
-              padding: "8px 14px",
-              border: "none",
-              borderBottom: `2px solid ${estado === e ? C.crimson : "transparent"}`,
-              background: "transparent",
-              color: estado === e ? C.crimson : C.textMuted,
-              fontFamily: "'Outfit',sans-serif",
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            {ESTADO_ORDEN_LABEL[e]}s
-          </button>
-        ))}
+    <div style={{ padding: "24px 28px", flex: 1, overflowY: "auto", display: "grid", gap: 16, alignContent: "start" }}>
+      {/* SPEC-10 V-14: resumen, pestañas por estado y por tipo, y tabla */}
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+        {tarjeta(resumen?.pendientes ?? "…", "Total pendientes", C.pending, C.pendingBg)}
+        {tarjeta(resumen?.aprobadasHoy ?? "…", "Aprobadas hoy", C.available, C.availableBg)}
+        {tarjeta(resumen?.conObservacion ?? "…", "Con obs. del docente", C.mine, C.mineBg)}
       </div>
 
-      {aviso && <Alert tipo="ok">{aviso}</Alert>}
-      {error && <Alert>{error}</Alert>}
-      {ordenes === null && !error && <p style={tenue}>Cargando la bandeja…</p>}
-      {ordenes?.length === 0 && <p style={tenue}>No hay solicitudes {ESTADO_ORDEN_LABEL[estado].toLowerCase()}s.</p>}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, overflow: "hidden" }}>
+        <div role="tablist" style={{ display: "flex", gap: 4, padding: "6px 14px 0", borderBottom: `1px solid ${C.border}` }}>
+          {ESTADOS_ORDEN.map((e) => (
+            <button
+              key={e}
+              type="button"
+              role="tab"
+              aria-selected={estado === e}
+              onClick={() => {
+                setEstado(e)
+                setAviso(null)
+              }}
+              style={{
+                padding: "10px 14px",
+                border: "none",
+                borderBottom: `2px solid ${estado === e ? C.crimson : "transparent"}`,
+                background: "transparent",
+                color: estado === e ? C.crimson : C.textMuted,
+                fontFamily: "'Outfit',sans-serif",
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {ESTADO_ORDEN_LABEL[e]}s
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
+          {(["estudiante", "docente", "especial"] as TipoSolicitud[]).map(pastilla)}
+        </div>
 
-      {ordenes?.map((orden) => {
-        const vencido = retiroVencido(orden)
-        const hayEntregas = orden.lineas.some((l) => l.estado === "entregado")
-        const finDeSemana =
-          orden.estado === "pendiente" &&
-          orden.retiro !== null &&
-          orden.devolucion !== null &&
-          (caeEnFinDeSemana(orden.retiro) || caeEnFinDeSemana(orden.devolucion))
-        return (
-          <article
-            key={orden.id}
-            style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16, display: "grid", gap: 8 }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ ...texto, fontWeight: 700, fontFamily: "'Outfit',sans-serif", fontSize: 15 }}>
-                #{orden.id} · {orden.solicitante?.nombreCompleto ?? `Usuario #${orden.solicitanteId}`}
-              </span>
-              <Badge label={ESTADO_ORDEN_LABEL[orden.estado]} {...colores[orden.estado]} />
-              {vencido && <Badge label="Retiro vencido" color={C.occupied} bg={C.occupiedBg} />}
-              {finDeSemana && <Badge label="Fin de semana" color={C.pending} bg={C.pendingBg} />}
-              {orden.demorado && <Badge label="Demorado" color={C.occupied} bg={C.occupiedBg} />}
-              <span style={{ ...tenue, marginLeft: "auto" }}>
-                {orden.sede} · pedida el {fechaLab(orden.fechaSolicitud)}
-              </span>
-            </div>
-            {orden.retiro && orden.devolucion && (
-              <span style={texto}>
-                Retiro {fechaLab(orden.retiro)} · Devolución {fechaLab(orden.devolucion)}
-                {orden.asignaturaId != null && <span style={tenue}> · asignatura {orden.asignaturaId}</span>}
-              </span>
+        {(aviso || error || ordenes === null || visibles.length === 0) && (
+          <div style={{ padding: "14px 16px", display: "grid", gap: 8 }}>
+            {aviso && <Alert tipo="ok">{aviso}</Alert>}
+            {error && <Alert>{error}</Alert>}
+            {ordenes === null && !error && <p style={tenue}>Cargando la bandeja…</p>}
+            {ordenes !== null && visibles.length === 0 && (
+              <p style={{ ...tenue, margin: 0 }}>
+                No hay {TIPO_LABEL[tipo].toLowerCase()} {ESTADO_ORDEN_LABEL[estado].toLowerCase()}s.
+              </p>
             )}
-            <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {resumenDeLineas(orden.lineas, stock.nombres).map((g) => (
-                <li key={g.equipamientoId} style={texto}>
-                  {g.cantidad} × {g.nombre}
-                </li>
-              ))}
-            </ul>
-            {orden.estado === "aprobada" && (
-              <span style={tenue}>
-                Unidades:{" "}
-                {orden.lineas
-                  .map((l) => (l.unidadId ? (stock.unidades.get(l.unidadId) ?? `#${l.unidadId}`) : "—"))
-                  .join(", ")}
-              </span>
-            )}
-            {orden.motivoResolucion && <span style={tenue}>Motivo: {orden.motivoResolucion}</span>}
+          </div>
+        )}
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-              {orden.avalArchivoId && (
-                <Button variant="ghost" onClick={() => void verAval(orden)}>
-                  Ver aval (PDF)
-                </Button>
-              )}
-              {orden.estado === "pendiente" && (
-                <>
-                  <Button variant="danger" onClick={() => setAccion({ tipo: "rechazar", orden })}>
-                    Rechazar
-                  </Button>
-                  <Button onClick={() => setAccion({ tipo: "aprobar", orden })}>Revisar y aprobar</Button>
-                </>
-              )}
-              {orden.estado === "aprobada" && !hayEntregas && (
-                <Button variant="danger" onClick={() => setAccion({ tipo: "cancelar", orden })}>
-                  Cancelar
-                </Button>
-              )}
-            </div>
-          </article>
-        )
-      })}
+        {visibles.length > 0 && (
+          <BandejaTabla
+            ordenes={visibles}
+            fichas={fichas}
+            unidades={stock.unidades}
+            acciones={{
+              onAprobar: (orden) => setAccion({ tipo: "aprobar", orden }),
+              onRechazar: (orden) => setAccion({ tipo: "rechazar", orden }),
+              onCancelar: (orden) => setAccion({ tipo: "cancelar", orden }),
+              onVerAval: (orden) => void verAval(orden),
+            }}
+          />
+        )}
+      </div>
 
       {accion?.tipo === "aprobar" && (
         <AprobarOrdenModal

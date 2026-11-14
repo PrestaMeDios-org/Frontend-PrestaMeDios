@@ -2,6 +2,7 @@ import { useState } from "react"
 import { C_LIGHT, C_DARK, ThemeCtx, useC } from "./theme"
 import type { Screen } from "./types"
 import { MainLayout } from "./components/layout/MainLayout"
+import { DialogoProvider } from "./components/ui/Dialogo"
 import { CatalogPage } from "./features/inventory/pages/CatalogPage"
 import { StockPage } from "./features/inventory/pages/StockPage"
 import { SpacesPage } from "./features/spaces/pages/SpacesPage"
@@ -22,6 +23,7 @@ import { CarritoPanel } from "./features/loans/components/CarritoPanel"
 import { SolicitudForm } from "./features/loans/components/SolicitudForm"
 import { MisSolicitudesPage } from "./features/loans/pages/MisSolicitudesPage"
 import { BandejaPage } from "./features/loans/pages/BandejaPage"
+import { useManualDeUso } from "./components/layout/ManualDeUsoModal" // MOMENTÁNEO (SPEC-10, RN-U02): manual de uso
 
 const TITLES: Record<Screen, { title: string; subtitle?: string }> = {
   catalog: {
@@ -81,9 +83,12 @@ export default function App() {
   const [dark, setDark] = useState(false)
   return (
     <ThemeCtx.Provider value={dark ? C_DARK : C_LIGHT}>
+      {/* SPEC-10 V-11: diálogos de confirmación y de texto con el estilo de la app */}
+      <DialogoProvider>
       <AuthProvider>
         <AuthGate dark={dark} onDarkToggle={() => setDark((d) => !d)} />
       </AuthProvider>
+      </DialogoProvider>
     </ThemeCtx.Provider>
   )
 }
@@ -155,6 +160,7 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
   const [screen, setScreen] = useState<Screen>("catalog")
   const carrito = useCarrito()
   const [carritoAbierto, setCarritoAbierto] = useState(false)
+  const manual = useManualDeUso(usuario.rol) // MOMENTÁNEO (SPEC-10, RN-U02): manual de uso
   const [solicitudAbierta, setSolicitudAbierta] = useState(false)
   // Solo estudiantes y docentes piden equipos (SPEC-05 PRE-03).
   const puedePedir = role === "student" || role === "teacher"
@@ -181,7 +187,7 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
       dark={dark}
       onDarkToggle={onDarkToggle}
       onProfile={() => setScreen("profile")}
-      onHelp={() => {}}
+      onHelp={manual.abrir} // MOMENTÁNEO (SPEC-10, RN-U02): antes `() => {}`
       cartCount={puedePedir ? carrito.total : 0}
       cartType={carrito.tipo}
       onCartOpen={() => setCarritoAbierto(true)}
@@ -244,6 +250,7 @@ function Shell({ dark, onDarkToggle }: { dark: boolean; onDarkToggle: () => void
           Módulo "{visible}" — pendiente de implementación
         </div>
       )}
+      {manual.modal /* MOMENTÁNEO (SPEC-10, RN-U02): manual de uso */}
     </MainLayout>
   )
 }

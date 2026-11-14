@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from "react"
+import { useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { useC } from "../../../theme"
 import { Alert, Field, SelectField, TextField, useInputStyle } from "../../../components/ui/Form"
 import { Button } from "../../../components/ui/Button"
@@ -19,6 +19,8 @@ import {
 import { crearEquipamiento, editarEquipamiento } from "../services/inventoryApi"
 import { SEDES, type Category, type Equipment } from "../types"
 import { Modal } from "./Modal"
+import { VistaPreviaEquipo } from "./VistaPreviaEquipo"
+import { useAuth } from "../../auth/AuthContext"
 
 function Casilla({
   label,
@@ -79,6 +81,9 @@ export function EquipmentFormModal({
   const [general, setGeneral] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
   const pedirSede = reglaSedeAlta(rol) === "obligatoria"
+  const finUnidades = useRef<HTMLDivElement>(null)
+  const { usuario } = useAuth()
+  const sedePropia = pedirSede ? null : (usuario?.sede ?? null)
 
   const poner = <K extends keyof EquipoForm>(k: K, v: EquipoForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }))
@@ -107,7 +112,32 @@ export function EquipmentFormModal({
   }
 
   return (
-    <Modal titulo={modo === "alta" ? "Nuevo equipo" : `Editar ${equipo?.name ?? "equipo"}`} onClose={onClose} ancho={640}>
+    <Modal
+      titulo={modo === "alta" ? "Nuevo equipo" : `Editar ${equipo?.name ?? "equipo"}`}
+      subtitulo="A la derecha ves cómo va quedando mientras completás los campos."
+      onClose={onClose}
+      ancho={1080}
+      conCerrar
+      cerrarAfuera={false}
+      pie={
+        <>
+          {general && (
+            <div style={{ marginRight: "auto", minWidth: 0 }}>
+              <Alert>{general}</Alert>
+            </div>
+          )}
+          <Button variant="ghost" onClick={onClose} disabled={enviando}>
+            Cancelar
+          </Button>
+          <Button onClick={guardar} disabled={enviando}>
+            {enviando ? "Guardando…" : modo === "alta" ? "Crear equipo" : "Guardar cambios"}
+          </Button>
+        </>
+      }
+    >
+      {/* SPEC-10 V-15: formulario a la izquierda y vista previa fija a la derecha */}
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 320px", gap: 24, alignItems: "start" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
       <FilaDos>
         <TextField
           label="Código"
@@ -139,16 +169,19 @@ export function EquipmentFormModal({
         />
       </FilaDos>
 
-      <Field label="Descripción técnica" error={errores.descripcion}>
-        <textarea
-          value={form.descripcion}
-          onChange={(e) => poner("descripcion", e.target.value)}
-          style={areaStyle}
-        />
-      </Field>
-      <Field label="Reglas de cuidado" hint="Una por línea.">
-        <textarea value={form.reglas} onChange={(e) => poner("reglas", e.target.value)} style={areaStyle} />
-      </Field>
+      {/* SPEC-10 V-15: descripción y reglas lado a lado, así "Unidades físicas" entra sin bajar */}
+      <FilaDos>
+        <Field label="Descripción técnica" error={errores.descripcion}>
+          <textarea
+            value={form.descripcion}
+            onChange={(e) => poner("descripcion", e.target.value)}
+            style={areaStyle}
+          />
+        </Field>
+        <Field label="Reglas de cuidado" hint="Una por línea.">
+          <textarea value={form.reglas} onChange={(e) => poner("reglas", e.target.value)} style={areaStyle} />
+        </Field>
+      </FilaDos>
       <FilaDos>
         <TextField
           label="URL de la imagen"
@@ -184,7 +217,14 @@ export function EquipmentFormModal({
             <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13.5, fontWeight: 700, color: C.text }}>
               Unidades físicas
             </span>
-            <Button variant="ghost" onClick={() => poner("unidades", [...form.unidades, unidadVacia()])}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                poner("unidades", [...form.unidades, unidadVacia()])
+                // SPEC-10 V-15: la unidad nueva queda a la vista.
+                window.setTimeout(() => finUnidades.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 0)
+              }}
+            >
               + Agregar unidad
             </Button>
           </div>
@@ -241,17 +281,20 @@ export function EquipmentFormModal({
               </div>
             </div>
           ))}
+          <div ref={finUnidades} />
         </div>
       )}
 
-      {general && <Alert>{general}</Alert>}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-        <Button variant="ghost" onClick={onClose} disabled={enviando}>
-          Cancelar
-        </Button>
-        <Button onClick={guardar} disabled={enviando}>
-          {enviando ? "Guardando…" : modo === "alta" ? "Crear equipo" : "Guardar cambios"}
-        </Button>
+      </div>
+      <div style={{ position: "sticky", top: 0 }}>
+        <VistaPreviaEquipo
+          form={form}
+          categorias={categorias}
+          base={modo === "edicion" ? equipo : undefined}
+          sedePropia={sedePropia}
+          conUnidades={modo === "alta"}
+        />
+      </div>
       </div>
     </Modal>
   )

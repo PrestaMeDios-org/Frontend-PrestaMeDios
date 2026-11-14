@@ -16,11 +16,19 @@ import type { Role } from "../../../types"
 import { SEDES, type Sede } from "../../auth/types"
 import { useSede, useUsuario } from "../../auth/AuthContext"
 import { mensajeDeError } from "../../../lib/api"
-import { isoALocal, ZONA_LAB } from "../../notifications/services/fechas"
+import { ZONA_LAB } from "../../notifications/services/fechas"
 import { CalendarGrid } from "../components/CalendarGrid"
+import { SolicitudesPendientesEspacios } from "../components/SolicitudesPendientesEspacios"
+import { reservaDelTurno, reservasDelDia, separarMotivo } from "../services/reservasDelDia"
+import { contarPorDia } from "../services/pendientesVista"
+import { armarMotivo, maxDescripcion } from "../services/motivo"
+import { useInputStyle } from "../../../components/ui/Form"
+import { DatePicker } from "../../../components/ui/DatePicker"
+import { SelectorHora } from "../../../components/ui/SelectorHora"
 import { agruparCorridas } from "../services/seleccion"
 import { Alert, Card, SelectField, TextField } from "../../../components/ui/Form"
 import { Button } from "../../../components/ui/Button"
+import { usePedirTexto } from "../../../components/ui/Dialogo"
 
 /** Franjas de una hora dentro del horario operativo vigente (GLO-02, desde config). */
 const franjas = (apertura: string, cierre: string): string[] => {
@@ -44,14 +52,16 @@ const formatearFecha = (fecha: string) => {
   return formatoFechaLab.format(new Date(Date.UTC(anio, mes - 1, dia, 12)))
 }
 
+// SPEC-10 V-12: "jueves 12 de noviembre" para el encabezado de los turnos.
+const mayusculaInicial = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
+const formatoDiaLargo = new Intl.DateTimeFormat("es-AR", { timeZone: ZONA_LAB, weekday: "long", day: "numeric", month: "long" })
+
 const formatoFechaLab = new Intl.DateTimeFormat("es-AR", {
   timeZone: ZONA_LAB,
   day: "numeric",
   month: "long",
   year: "numeric",
 })
-
-const fechaHoraActualLab = (ahora: number) => isoALocal(new Date(ahora).toISOString())
 
 export function SpacesPage({ role = "student" }: { role?: Role }) {
   const C = useC()
@@ -65,10 +75,11 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [fecha, setFecha] = useState<string | null>(null)
   const [horariosSeleccionados, setHorariosSeleccionados] = useState<string[]>([])
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false)
-  const [reservaParaCancelar, setReservaParaCancelar] = useState<Reserva | null>(null)
+  // SPEC-10 V-13: materia y descripción, guardadas juntas en `motivo` (RES-02).
+  const [materia, setMateria] = useState("")
+  const [descripcion, setDescripcion] = useState("")
+  const estiloCampo = useInputStyle(false)
   const [bloqueoParaDeshacer, setBloqueoParaDeshacer] = useState<Bloqueo | null>(null)
-  const [cancelandoReserva, setCancelandoReserva] = useState(false)
-  const [ahora, setAhora] = useState(() => Date.now())
   const [solicitandoReservas, setSolicitandoReservas] = useState(false)
   const [mes, setMes] = useState(() => {
     const hoy = new Date()
@@ -77,8 +88,9 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const [reservas, setReservas] = useState<Ocupacion[]>([])
   const [bloqueos, setBloqueos] = useState<Bloqueo[]>([])
   const [pendientes, setPendientes] = useState<Reserva[]>([])
-  const [misReservas, setMisReservas] = useState<Reserva[]>([])
   const [pendientesAdmin, setPendientesAdmin] = useState<Reserva[]>([])
+  // SPEC-10 V-21: tocar un día del calendario filtra las pendientes a ese día y espacio.
+  const [verDia, setVerDia] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mensajeExito, setMensajeExito] = useState<string | null>(null)
@@ -90,11 +102,6 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   const esAdmin = role === "admin"
   const esSuperAdmin = usuario.rol === "SUPERADMIN"
   const puedeCrearEspacio = usuario.rol === "ADMIN_LOCAL" || esSuperAdmin
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setAhora(Date.now()), 60_000)
-    return () => window.clearInterval(timer)
-  }, [])
 
   useEffect(() => {
     setHorariosSeleccionados([])
@@ -146,23 +153,12 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
       .catch((e) => setError(e.message))
   }, [fecha, idEspacio])
 
-  const cargarMisReservas = () => {
-    listReservas()
-      .then((list) =>
-        setMisReservas(
-          list.filter((r) => r.estado !== "Cancelada" && r.estado !== "Rechazada"),
-        ),
-      )
-      .catch((e) => setError(e.message))
-  }
-
   const cargarPendientesAdmin = () => {
     listReservas({ estado: "Pendiente" }).then(setPendientesAdmin).catch((e) => setError(e instanceof Error ? e.message : "No se pudo cargar las solicitudes pendientes"))
   }
 
   useEffect(() => {
     if (esAdmin) cargarPendientesAdmin()
-    else cargarMisReservas()
   }, [esAdmin, currentUserId, idEspacio, fecha, reservas.length])
 
   const refrescarMes = () => {
@@ -207,6 +203,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
           fecha_reserva: fecha,
           hora_inicio: `${corrida.inicio}:00`,
           hora_fin: `${corrida.fin}:00`,
+          motivo: armarMotivo(materia, descripcion),
         })
         solicitudesEnviadas += 1
       } catch (e) {
@@ -216,7 +213,6 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     }
 
     if (solicitudesEnviadas > 0) {
-      cargarMisReservas()
       listReservas({ id_espacio: idEspacio, fecha })
         .then(setPendientes)
         .catch((e) => setError(mensajeDeError(e, "No se pudieron actualizar las reservas del día")))
@@ -225,6 +221,10 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
 
     setHorariosSeleccionados(horariosFallidos)
     setSolicitandoReservas(false)
+    if (horariosFallidos.length === 0) {
+      setMateria("")
+      setDescripcion("")
+    }
     if (horariosFallidos.length > 0) {
       setError(
         `Se enviaron ${solicitudesEnviadas} solicitud(es). No se pudieron enviar ${errores.length}: ${errores.join("; ")}`,
@@ -233,24 +233,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     }
 
     setMostrarConfirmacion(false)
-    setMensajeExito(`Se enviaron ${solicitudesEnviadas} solicitudes de reserva.`)
-  }
-
-  const confirmarCancelacion = async () => {
-    if (!reservaParaCancelar) return
-
-    try {
-      setCancelandoReserva(true)
-      setError(null)
-      await updateReservaEstado(reservaParaCancelar.id, "Cancelada")
-      setReservaParaCancelar(null)
-      cargarMisReservas()
-      refrescarMes()
-    } catch (e) {
-      setError(mensajeDeError(e, "No se pudo cancelar la reserva"))
-    } finally {
-      setCancelandoReserva(false)
-    }
+    setMensajeExito(`Se enviaron ${solicitudesEnviadas} solicitudes de reserva. Podés seguirlas en Mis Solicitudes.`)
   }
 
   const crearEspacio = async () => {
@@ -311,7 +294,7 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     pendientes.some(
       (p) =>
         p.estado === "Pendiente" &&
-        p.idUsuario === currentUserId &&
+        (esAdmin || p.idUsuario === currentUserId) &&
         p.idEspacio === idEspacio &&
         p.fecha === fecha &&
         p.horaInicio <= slot &&
@@ -388,20 +371,25 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
     }
   }
 
+  const pedirTexto = usePedirTexto() // SPEC-10 V-11: en lugar de window.prompt
   const resolver = async (id: number, decision: "Aprobada" | "Rechazada") => {
     let motivo: string | undefined
     if (decision === "Rechazada") {
-      motivo = window.prompt("Motivo del rechazo:") ?? undefined
+      motivo = (await pedirTexto({ titulo: "Rechazar la reserva", etiqueta: "Motivo del rechazo", aceptar: "Rechazar" })) ?? undefined
       if (!motivo) return
     }
     try {
       await updateReservaEstado(id, decision, motivo)
       cargarPendientesAdmin()
       refrescarMes()
+      if (fecha && idEspacio != null) listReservas({ id_espacio: idEspacio, fecha }).then(setPendientes).catch(() => {})
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo actualizar la reserva")
     }
   }
+
+  // SPEC-10 V-21: el admin ve quién reservó cada turno y para qué (la API ya se lo da, AC-S14).
+  const delDia = esAdmin ? reservasDelDia(pendientes, idEspacio, fecha) : []
 
   const nombreEspacio = (id: number) => espacios.find((e) => e.id === id)?.nombre ?? `#${id}`
 
@@ -414,14 +402,14 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               label="Nombre"
               value={nombreNuevoEspacio}
               onChange={setNombreNuevoEspacio}
-              placeholder="Ej.: Sala de edici\u00f3n"
+              placeholder="Ej.: Sala de edición"
               disabled={creandoEspacio}
             />
             <TextField
               label="Tipo (opcional)"
               value={tipoNuevoEspacio}
               onChange={setTipoNuevoEspacio}
-              placeholder="Ej.: Edici\u00f3n"
+              placeholder="Ej.: Edición"
               disabled={creandoEspacio}
             />
             {esSuperAdmin ? (
@@ -535,11 +523,13 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
           onSelectFecha={(iso) => {
             setFecha(iso)
             if (esAdmin) {
+              setVerDia(true)
               setBloFechaInicio(iso)
               setBloFechaFin(iso)
             }
           }}
           onMonthChange={setMes}
+          pendientesPorDia={esAdmin ? contarPorDia(pendientesAdmin, idEspacio) : undefined}
         />
         <div
           style={{
@@ -549,85 +539,139 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
             padding: 20,
           }}
         >
-          <div
-            style={{
-              fontFamily: "'Outfit',sans-serif",
-              fontWeight: 700,
-              color: C.text,
-              marginBottom: 12,
-            }}
-          >
-            {fecha ? `Franjas del ${fecha} (${horario.apertura}–${horario.cierre})` : "Seleccioná un día"}
+          {/* SPEC-10 V-12: encabezado con el día en palabras, turnos como tarjetas y leyenda */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 17, fontWeight: 800, color: C.text }}>
+              {fecha ? mayusculaInicial(formatoDiaLargo.format(new Date(`${fecha}T12:00:00-03:00`))) : "Elegí un día"}
+            </div>
+            <div style={{ marginTop: 3, fontFamily: "'Inter',sans-serif", fontSize: 12.5, color: C.textMuted }}>
+              {fecha
+                ? `Horario del laboratorio: ${horario.apertura} a ${horario.cierre}${esAdmin ? "" : " · Podés elegir varios turnos seguidos"}`
+                : "Tocá un día del calendario para ver sus turnos."}
+            </div>
           </div>
+          {!fecha && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                minHeight: 220,
+                border: `1.5px dashed ${C.border}`,
+                borderRadius: 14,
+                color: C.textFaint,
+                fontFamily: "'Inter',sans-serif",
+                fontSize: 13,
+              }}
+            >
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <rect x="3" y="4.5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M3 9.5H21M8 2.5V6M16 2.5V6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="12" cy="15" r="2" fill="currentColor" />
+              </svg>
+              Sin día elegido
+            </div>
+          )}
           {isLoading && (
             <div style={{ color: C.textFaint, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
               Cargando disponibilidad...
             </div>
           )}
           {fecha && !isLoading && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
               {franjas(horario.apertura, horario.cierre).map((slot) => {
                 const ocupado = slotOcupado(slot)
                 const bloqueado = slotBloqueado(slot)
                 const pendiente = slotPendiente(slot)
                 const inhabilitado = ocupado || bloqueado
                 const seleccionado = horariosSeleccionados.includes(slot)
+                const deshabilitado = inhabilitado || esAdmin || (pendiente && !seleccionado)
+                const estado = seleccionado
+                  ? { texto: "Elegido", color: "white", bg: C.crimson, borde: C.crimson, punto: "white" }
+                  : ocupado
+                    ? { texto: "Ocupado", color: C.occupied, bg: C.occupiedBg, borde: "transparent", punto: C.occupied }
+                    : bloqueado
+                      ? { texto: "Bloqueado", color: C.maintenance, bg: C.maintenanceBg, borde: "transparent", punto: C.maintenance }
+                      : pendiente
+                        ? { texto: "Con solicitud pendiente", color: C.pending, bg: C.pendingBg, borde: "transparent", punto: C.pending }
+                        : { texto: "Libre", color: C.text, bg: C.card, borde: C.border, punto: C.available }
                 return (
                   <button
                     key={slot}
-                    disabled={inhabilitado || esAdmin || (pendiente && !seleccionado)}
+                    disabled={deshabilitado}
                     aria-pressed={seleccionado}
                     title={esAdmin ? "Las reservas las solicitan estudiantes y docentes." : undefined}
                     onClick={() => alternarHorario(slot)}
                     style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "8px 12px",
-                      borderRadius: 9,
-                      border: `1px solid ${C.border}`,
-                      background: ocupado
-                        ? C.occupiedBg
-                        : bloqueado
-                          ? C.maintenanceBg
-                          : pendiente
-                            ? C.pendingBg
-                            : C.availableBg,
-                      color: ocupado
-                        ? C.occupied
-                        : bloqueado
-                          ? C.maintenance
-                          : pendiente
-                            ? C.pending
-                            : C.available,
-                      cursor: inhabilitado || esAdmin || (pendiente && !seleccionado) ? "default" : "pointer",
-                      fontFamily: "'Inter',sans-serif",
-                      fontSize: 12.5,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      gap: 6,
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: `1.5px solid ${estado.borde}`,
+                      background: estado.bg,
+                      color: estado.color,
+                      cursor: deshabilitado ? "default" : "pointer",
+                      textAlign: "left",
+                      transition: "background 0.12s, border-color 0.12s",
                     }}
                   >
-                    {slot}–{addHour(slot)}
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        width: 15,
-                        height: 15,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        border: `1px solid ${seleccionado ? C.textMuted : C.border}`,
-                        borderRadius: 3,
-                        background: seleccionado ? C.textMuted : "transparent",
-                        color: C.card,
-                        fontSize: 11,
-                        lineHeight: 1,
-                      }}
-                    >
-                      {seleccionado ? "✓" : ""}
+                    <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, fontWeight: 700 }}>
+                      {slot} – {addHour(slot)}
                     </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "'Inter',sans-serif", fontSize: 11.5 }}>
+                      {seleccionado ? (
+                        <span aria-hidden="true" style={{ fontWeight: 700 }}>✓</span>
+                      ) : (
+                        <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 99, background: estado.punto }} />
+                      )}
+                      {estado.texto}
+                    </span>
+                    {(() => {
+                      const res = esAdmin && !seleccionado ? reservaDelTurno(delDia, slot) : undefined
+                      if (!res) return null
+                      const { materia } = separarMotivo(res.motivo)
+                      return (
+                        <span
+                          title={res.motivo ?? undefined}
+                          style={{
+                            maxWidth: "100%",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            fontFamily: "'Inter',sans-serif",
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            color: C.text,
+                          }}
+                        >
+                          {res.solicitanteApellido ?? `Usuario #${res.idUsuario}`}
+                          {materia ? ` · ${materia}` : ""}
+                        </span>
+                      )
+                    })()}
                   </button>
                 )
               })}
             </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 14, fontFamily: "'Inter',sans-serif", fontSize: 11.5, color: C.textMuted }}>
+              {[
+                ["Libre", C.available],
+                ["Con solicitud pendiente", C.pending],
+                ["Ocupado", C.occupied],
+                ["Bloqueado", C.maintenance],
+              ].map(([t, c]) => (
+                <span key={t} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 99, background: c }} />
+                  {t}
+                </span>
+              ))}
+            </div>
+            </>
           )}
           {!esAdmin && fecha && !isLoading && horariosSeleccionados.length > 0 && (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
@@ -640,160 +684,19 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
         </div>
       </div>
 
-      {!esAdmin && (
-      <div
-        style={{
-          marginTop: 18,
-          background: C.card,
-          border: `1px solid ${C.border}`,
-          borderRadius: 16,
-          padding: 20,
-        }}
-      >
-        <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, color: C.text, marginBottom: 12 }}>
-          Mis reservas
-        </div>
-        {misReservas.length === 0 && (
-          <div style={{ color: C.textFaint, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
-            No tenés reservas registradas.
-          </div>
-        )}
-          {misReservas.map((r) => {
-            const fechaHoraActual = fechaHoraActualLab(ahora)
-            const expirada = `${r.fecha}T${r.horaFin}` <= fechaHoraActual
-            const iniciada = `${r.fecha}T${r.horaInicio}` <= fechaHoraActual
-            const estadoMostrado = expirada ? "Expirada" : r.estado
-
-            return (
-              <div
-                key={r.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "8px 0",
-                  borderBottom: `1px solid ${C.borderLight}`,
-                  fontFamily: "'Inter',sans-serif",
-                  fontSize: 13,
-                  color: expirada ? C.textFaint : C.text,
-                }}
-              >
-                <span>
-                  {nombreEspacio(r.idEspacio)} · {formatearFecha(r.fecha)} · {r.horaInicio}–{r.horaFin} ·{" "}
-                  <strong
-                    style={{
-                      color: expirada
-                        ? C.textFaint
-                        : r.estado === "Aprobada"
-                          ? C.available
-                          : r.estado === "Pendiente"
-                            ? C.pending
-                            : C.textMuted,
-                    }}
-                  >
-                    {estadoMostrado}
-                  </strong>
-                </span>
-                {!iniciada && (r.estado === "Pendiente" || r.estado === "Aprobada") && (
-                  <button
-                    onClick={() => {
-                      setError(null)
-                      setReservaParaCancelar(r)
-                    }}
-                    style={{
-                      padding: "5px 12px",
-                      borderRadius: 8,
-                      border: `1px solid ${C.border}`,
-                      background: C.occupiedBg,
-                      color: C.occupied,
-                      cursor: "pointer",
-                      fontSize: 12,
-                    }}
-                  >
-                    Cancelar
-                  </button>
-                )}
-              </div>
-            )
-          })}
-      </div>
-      )}
+      {/* SPEC-10 V-18: "Mis reservas" pasó a Mis Solicitudes (USR-06). */}
 
       {esAdmin && (
         <>
-          <div
-            style={{
-              marginTop: 18,
-              background: C.card,
-              border: `1px solid ${C.border}`,
-              borderRadius: 16,
-              padding: 20,
-            }}
-          >
-            <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, color: C.text, marginBottom: 12 }}>
-              Solicitudes pendientes (aprobación manual)
-            </div>
-            {pendientesAdmin.length === 0 && (
-              <div style={{ color: C.textFaint, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
-                No hay solicitudes pendientes.
-              </div>
-            )}
-            {pendientesAdmin.map((r) => (
-              <div
-                key={r.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  padding: "8px 0",
-                  borderBottom: `1px solid ${C.borderLight}`,
-                  fontFamily: "'Inter',sans-serif",
-                  fontSize: 13,
-                  color: C.text,
-                }}
-              >
-                <span style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-                  {r.solicitanteNombre && r.solicitanteApellido
-                    ? `${r.solicitanteApellido}, ${r.solicitanteNombre}`
-                    : `Usuario #${r.idUsuario}`}
-                  <span style={{ color: C.textFaint, fontSize: 12 }}>
-                    {nombreEspacio(r.idEspacio)} · {formatearFecha(r.fecha)} · {r.horaInicio}–{r.horaFin}
-                  </span>
-                </span>
-                <span style={{ display: "flex", gap: 8 }}>
-                  <button
-                    onClick={() => resolver(r.id, "Aprobada")}
-                    style={{
-                      padding: "5px 12px",
-                      borderRadius: 8,
-                      border: "none",
-                      background: C.availableBg,
-                      color: C.available,
-                      cursor: "pointer",
-                      fontSize: 12,
-                    }}
-                  >
-                    Aprobar
-                  </button>
-                  <button
-                    onClick={() => resolver(r.id, "Rechazada")}
-                    style={{
-                      padding: "5px 12px",
-                      borderRadius: 8,
-                      border: "none",
-                      background: C.occupiedBg,
-                      color: C.occupied,
-                      cursor: "pointer",
-                      fontSize: 12,
-                    }}
-                  >
-                    Rechazar
-                  </button>
-                </span>
-              </div>
-            ))}
-          </div>
+          {/* SPEC-10 V-21: agrupadas por día, más grandes y con materia y descripción separadas */}
+          <SolicitudesPendientesEspacios
+            reservas={pendientesAdmin}
+            espacios={espacios}
+            nombreEspacio={nombreEspacio}
+            onResolver={resolver}
+            filtroDia={verDia && fecha && idEspacio !== null ? { fecha, idEspacio } : null}
+            onLimpiarDia={() => setVerDia(false)}
+          />
 
           <div
             style={{
@@ -808,19 +711,25 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               Bloquear espacio (mantenimiento / feriado)
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-              <input
-                type="date"
-                value={bloFechaInicio}
-                onChange={(e) => setBloFechaInicio(e.target.value)}
-                style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.border}` }}
-              />
+              {/* SPEC-10 §4.6 (V-01): selectores comunes de fecha y hora */}
+              <div style={{ width: 150 }}>
+                <DatePicker
+                  value={bloFechaInicio}
+                  onChange={setBloFechaInicio}
+                  rango={bloFechaInicio && bloFechaFin ? { desde: bloFechaInicio, hasta: bloFechaFin } : undefined}
+                  ariaLabel="Desde"
+                />
+              </div>
               <span style={{ color: C.textFaint }}>→</span>
-              <input
-                type="date"
-                value={bloFechaFin}
-                onChange={(e) => setBloFechaFin(e.target.value)}
-                style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.border}` }}
-              />
+              <div style={{ width: 150 }}>
+                <DatePicker
+                  value={bloFechaFin}
+                  onChange={setBloFechaFin}
+                  min={bloFechaInicio || undefined}
+                  rango={bloFechaInicio && bloFechaFin ? { desde: bloFechaInicio, hasta: bloFechaFin } : undefined}
+                  ariaLabel="Hasta"
+                />
+              </div>
               <label style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.text }}>
                 <input
                   type="checkbox"
@@ -831,19 +740,13 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               </label>
               {!bloTodoElDia && (
                 <>
-                  <input
-                    type="time"
-                    value={bloHoraInicio}
-                    onChange={(e) => setBloHoraInicio(e.target.value)}
-                    style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.border}` }}
-                  />
+                  <div style={{ width: 100 }}>
+                    <SelectorHora value={bloHoraInicio} onChange={setBloHoraInicio} vacio="--:--" ariaLabel="Hora desde" />
+                  </div>
                   <span style={{ color: C.textFaint }}>→</span>
-                  <input
-                    type="time"
-                    value={bloHoraFin}
-                    onChange={(e) => setBloHoraFin(e.target.value)}
-                    style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.border}` }}
-                  />
+                  <div style={{ width: 100 }}>
+                    <SelectorHora value={bloHoraFin} onChange={setBloHoraFin} vacio="--:--" ariaLabel="Hora hasta" />
+                  </div>
                 </>
               )}
               <input
@@ -974,13 +877,40 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               <strong>{espacioActual.nombre}</strong>
               <div style={{ marginTop: 4 }}>{formatearFecha(fecha)}</div>
             </div>
-            <ul style={{ margin: "14px 0 20px", paddingLeft: 22, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 14 }}>
+            <ul style={{ margin: "14px 0 16px", paddingLeft: 22, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 14 }}>
               {agruparCorridas(horariosSeleccionados).map((corrida) => (
                 <li key={corrida.inicio} style={{ padding: "3px 0" }}>
                   {corrida.inicio}–{corrida.fin}
                 </li>
               ))}
             </ul>
+            {/* SPEC-10 V-13: materia y descripción (se guardan en `motivo`, RES-02) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: 5, fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 600, color: C.text }}>
+                Materia
+                <input
+                  value={materia}
+                  onChange={(e) => setMateria(e.target.value)}
+                  placeholder="Ej.: Taller de Realización Audiovisual"
+                  maxLength={150}
+                  style={estiloCampo}
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 5, fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 600, color: C.text }}>
+                Descripción
+                <textarea
+                  value={descripcion}
+                  onChange={(e) => setDescripcion(e.target.value)}
+                  placeholder="Ej.: Rodaje de la práctica 2"
+                  rows={2}
+                  maxLength={maxDescripcion(materia)}
+                  style={{ ...estiloCampo, resize: "vertical" }}
+                />
+              </label>
+              <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 11.5, color: C.textFaint }}>
+                Ayuda al laboratorio a evaluar la solicitud.
+              </span>
+            </div>
             {error && (
               <div role="alert" style={{ marginBottom: 16, color: C.crimson, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
                 {error}
@@ -996,72 +926,6 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               </Button>
               <Button onClick={confirmarReservas} disabled={solicitandoReservas || horariosSeleccionados.length === 0}>
                 {solicitandoReservas ? "Enviando..." : "Aceptar y solicitar"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      {reservaParaCancelar && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 20,
-            background: "rgba(0,0,0,0.48)",
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="confirmar-cancelacion-titulo"
-            style={{
-              width: "100%",
-              maxWidth: 460,
-              background: C.card,
-              border: `1px solid ${C.border}`,
-              borderRadius: 16,
-              padding: 24,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.24)",
-            }}
-          >
-            <h2
-              id="confirmar-cancelacion-titulo"
-              style={{ margin: "0 0 8px", fontFamily: "'Outfit',sans-serif", fontSize: 20, color: C.text }}
-            >
-              ¿Cancelar esta reserva?
-            </h2>
-            <p style={{ margin: "0 0 16px", color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
-              Si confirmás, se cancelará también la aprobación del administrador.
-            </p>
-            <div style={{ padding: 14, borderRadius: 10, background: C.occupiedBg, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
-              <strong>{nombreEspacio(reservaParaCancelar.idEspacio)}</strong>
-              <div style={{ marginTop: 4 }}>
-                {formatearFecha(reservaParaCancelar.fecha)} · {reservaParaCancelar.horaInicio}–{reservaParaCancelar.horaFin}
-              </div>
-              <div style={{ marginTop: 4 }}>Estado: {reservaParaCancelar.estado}</div>
-            </div>
-            {error && (
-              <div role="alert" style={{ marginTop: 14, color: C.crimson, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
-                {error}
-              </div>
-            )}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setReservaParaCancelar(null)
-                  setError(null)
-                }}
-                disabled={cancelandoReserva}
-              >
-                No, volver
-              </Button>
-              <Button onClick={confirmarCancelacion} variant="danger" disabled={cancelandoReserva}>
-                {cancelandoReserva ? "Cancelando..." : "Sí, cancelar reserva"}
               </Button>
             </div>
           </div>

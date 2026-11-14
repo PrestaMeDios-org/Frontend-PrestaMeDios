@@ -5,7 +5,11 @@ import { ApiError, mensajeDeError } from "../../../lib/api"
 import { useC } from "../../../theme"
 import { useUsuario } from "../../auth/AuthContext"
 import { Modal } from "../../inventory/components/Modal"
+import { DatePicker } from "../../../components/ui/DatePicker"
+import { useDisponibilidadPedido } from "../hooks/useDisponibilidadPedido"
+import { infoDiaRetiro, ultimaDevolucion } from "../services/calendarioPedido"
 import { useCarrito } from "../CarritoContext"
+import { TerminosPrestamo } from "./TerminosPrestamo"
 import { crearOrden, obtenerReglas, subirAval } from "../services/loansApi"
 import {
   AVAL_MAX_MB,
@@ -75,6 +79,17 @@ export function SolicitudForm({ onClose, onVerSolicitudes }: Props) {
   const errores = form && contexto && intentado ? validarSolicitud(form, contexto) : {}
   const horas = reglas ? opcionesDeHora(reglas.horarioApertura, reglas.horarioCierre) : []
   const hoy = fechaHoyLab()
+  // SPEC-10 §4.6 (V-01): el calendario muestra la disponibilidad del pedido y el plazo (PRE-06, PRE-07).
+  const disponibilidad = useDisponibilidadPedido(items)
+  const plazoPedido = reglas && items.length > 0 ? Math.min(...items.map((i) => limiteDias(i, reglas))) : 1
+  const maxDevolucion =
+    form?.fechaRetiro ? ultimaDevolucion(disponibilidad.modelos, form.fechaRetiro, plazoPedido) : undefined
+  const elegirRetiro = (iso: string) => {
+    cambiar("fechaRetiro", iso)
+    // Si la devolución elegida queda fuera del nuevo rango, se vuelve a pedir.
+    const tope = ultimaDevolucion(disponibilidad.modelos, iso, plazoPedido)
+    if (form?.fechaDevolucion && (form.fechaDevolucion < iso || form.fechaDevolucion > tope)) cambiar("fechaDevolucion", "")
+  }
   const estiloCampo = useInputStyle(false)
   const estiloCampoInvalido = useInputStyle(true)
 
@@ -161,13 +176,16 @@ export function SolicitudForm({ onClose, onVerSolicitudes }: Props) {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Fecha de retiro" error={errores.fechaRetiro}>
-              <input
-                type="date"
-                min={hoy}
+              <DatePicker
                 value={form.fechaRetiro}
-                aria-invalid={Boolean(errores.fechaRetiro)}
-                onChange={(e) => cambiar("fechaRetiro", e.target.value)}
-                style={errores.fechaRetiro ? estiloCampoInvalido : estiloCampo}
+                onChange={elegirRetiro}
+                min={hoy}
+                infoDia={(iso) => infoDiaRetiro(disponibilidad.modelos, disponibilidad.cargando, iso)}
+                rango={form.fechaDevolucion ? { desde: form.fechaRetiro, hasta: form.fechaDevolucion } : undefined}
+                invalido={Boolean(errores.fechaRetiro)}
+                atenuarFinDeSemana
+                ariaLabel="Fecha de retiro"
+                pie="Verde: alcanza para tu pedido · Rojo: no alcanza"
               />
             </Field>
             <SelectField
@@ -178,13 +196,21 @@ export function SolicitudForm({ onClose, onVerSolicitudes }: Props) {
               error={errores.horaRetiro}
             />
             <Field label="Fecha de devolución" error={errores.fechaDevolucion}>
-              <input
-                type="date"
-                min={form.fechaRetiro || hoy}
+              <DatePicker
                 value={form.fechaDevolucion}
-                aria-invalid={Boolean(errores.fechaDevolucion)}
-                onChange={(e) => cambiar("fechaDevolucion", e.target.value)}
-                style={errores.fechaDevolucion ? estiloCampoInvalido : estiloCampo}
+                onChange={(iso) => cambiar("fechaDevolucion", iso)}
+                min={form.fechaRetiro || hoy}
+                max={maxDevolucion}
+                infoDia={(iso) => infoDiaRetiro(disponibilidad.modelos, disponibilidad.cargando, iso)}
+                rango={form.fechaRetiro ? { desde: form.fechaRetiro, hasta: form.fechaDevolucion || form.fechaRetiro } : undefined}
+                invalido={Boolean(errores.fechaDevolucion)}
+                atenuarFinDeSemana
+                ariaLabel="Fecha de devolución"
+                pie={
+                  form.fechaRetiro
+                    ? `Hasta ${plazoPedido} ${plazoPedido === 1 ? "día" : "días"} contando el retiro`
+                    : "Elegí primero el retiro"
+                }
               />
             </Field>
             <SelectField
@@ -240,15 +266,9 @@ export function SolicitudForm({ onClose, onVerSolicitudes }: Props) {
             </Field>
           )}
 
+          {/* SPEC-10 V-19: Términos y Condiciones (PRE-03) con el reglamento en un globo */}
           <Field label="Normativa" error={errores.aceptaNormativa}>
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={form.aceptaNormativa}
-                onChange={(e) => cambiar("aceptaNormativa", e.target.checked)}
-              />
-              <span style={texto}>Acepto la normativa de préstamos del laboratorio.</span>
-            </span>
+            <TerminosPrestamo checked={form.aceptaNormativa} onChange={(v) => cambiar("aceptaNormativa", v)} />
           </Field>
 
           {errorServidor && <Alert>{errorServidor}</Alert>}
