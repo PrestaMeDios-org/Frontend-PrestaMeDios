@@ -30,7 +30,7 @@ describe("validarRegistro", () => {
     nombre: "Lucía",
     apellido: "Pérez",
     dni: "40123456",
-    telefono: "",
+    telefono: "+54 2901 555123",
     rol: "ESTUDIANTE" as const,
     sede: "Ushuaia" as const,
   }
@@ -38,6 +38,10 @@ describe("validarRegistro", () => {
   it("marca los campos inválidos", () => {
     const e = validarRegistro({ ...base, dni: "40.123.456", confirmacion: "otra", email: "x" })
     expect(Object.keys(e).sort()).toEqual(["confirmacion", "dni", "email"])
+  })
+  it("exige el teléfono (USR-05, SPEC-09 RN-86)", () => {
+    expect(validarRegistro({ ...base, telefono: "" }).telefono).toBe("El teléfono es obligatorio.")
+    expect(validarRegistro({ ...base, telefono: "12345" }).telefono).toBeDefined()
   })
 })
 
