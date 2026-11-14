@@ -228,11 +228,11 @@ export function Navbar({
               padding: "7px 13px",
               borderRadius: 9,
               border: `1.5px solid ${
-                cartType === "alta-gama" ? "#5A2D82" : C.crimson
+                cartType === "alta-gama" ? C.premium : C.crimson
               }`,
-              background: cartType === "alta-gama" ? "#EDE0FF" : C.crimsonLight,
+              background: cartType === "alta-gama" ? C.premiumBg : C.crimsonLight,
               cursor: "pointer",
-              color: cartType === "alta-gama" ? "#5A2D82" : C.crimson,
+              color: cartType === "alta-gama" ? C.premium : C.crimson,
             }}
             title="Ver carrito"
           >
@@ -258,8 +258,9 @@ export function Navbar({
             </span>
             <span
               style={{
-                background: cartType === "alta-gama" ? "#5A2D82" : C.crimson,
-                color: "white",
+                background: cartType === "alta-gama" ? C.premium : C.crimson,
+                // En oscuro `premium` es claro: el número va con el color de la tarjeta (SPEC-10 V-06).
+                color: cartType === "alta-gama" ? C.card : "white",
                 borderRadius: 100,
                 padding: "0 6px",
                 fontSize: 11,

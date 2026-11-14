@@ -27,6 +27,9 @@ export const C_LIGHT = {
   mineBg: "#E8EEF5",
   maintenance: "#7A5A00",
   maintenanceBg: "#FFF8E2",
+  // Equipos de Alta Gama (PRE-05) — SPEC-10 A1
+  premium: "#5A2D82",
+  premiumBg: "#EDE0FF",
 }
 export const C_DARK = {
   crimson: "#D4536E",
@@ -54,6 +57,8 @@ export const C_DARK = {
   mineBg: "#0C1D35",
   maintenance: "#C4A000",
   maintenanceBg: "#1E1800",
+  premium: "#C4A0EC",
+  premiumBg: "#26173A",
 }
 export type ColorTokens = typeof C_LIGHT
 export const ThemeCtx = createContext<ColorTokens>(C_LIGHT)

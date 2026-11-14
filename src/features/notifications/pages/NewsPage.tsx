@@ -11,6 +11,8 @@ import { PortalInfo } from "../components/PortalInfo"
 import { useComunicados } from "../hooks/useComunicados"
 import { cambiarEstadoComunicado } from "../services/notificationsApi"
 import type { Comunicado } from "../types"
+import { useConfirmar } from "../../../components/ui/Dialogo"
+import { usePortadas } from "../portada/usePortadas" // MOMENTÁNEO (SPEC-10 M-02)
 
 type Pestana = "comunicados" | "portal"
 
@@ -34,10 +36,21 @@ export function NewsPage() {
     sede,
     incluirArchivados: admin && verArchivados,
   })
+  const [versionPortadas, setVersionPortadas] = useState(0) // MOMENTÁNEO (SPEC-10 M-02)
+  const portadas = usePortadas(items.map((c) => c.id), versionPortadas) // MOMENTÁNEO (SPEC-10 M-02)
 
+  const confirmar = useConfirmar() // SPEC-10 V-11: diálogo propio en lugar de window.confirm
   const alternarEstado = async (c: Comunicado) => {
     const archivar = c.estado === "PUBLICADO"
-    if (archivar && !window.confirm(`¿Archivar "${c.titulo}"? Dejará de verse para estudiantes y docentes.`)) return
+    if (
+      archivar &&
+      !(await confirmar({
+        titulo: "¿Archivar el comunicado?",
+        mensaje: `"${c.titulo}" dejará de verse para estudiantes y docentes. Lo podés reactivar desde "Mostrar archivados".`,
+        aceptar: "Archivar",
+      }))
+    )
+      return
     setOcupado(c.id)
     setErrorAccion(null)
     try {
@@ -110,10 +123,12 @@ export function NewsPage() {
               sedePropia={usuario.sede}
               comunicado={formulario.comunicado}
               onCancelar={() => setFormulario(null)}
+              portadaActual={formulario.comunicado ? portadas.get(formulario.comunicado.id) : undefined}
               onGuardado={(mensaje) => {
                 setFormulario(null)
                 setAviso(mensaje)
                 recargar()
+                setVersionPortadas((v) => v + 1) // MOMENTÁNEO (SPEC-10 M-02)
               }}
             />
           )}
@@ -148,6 +163,7 @@ export function NewsPage() {
                 setFormulario({ comunicado: c })
               }}
               onCambiarEstado={alternarEstado}
+              portadas={portadas} // MOMENTÁNEO (SPEC-10 M-02)
             />
           )}
 

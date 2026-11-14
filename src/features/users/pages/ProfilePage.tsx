@@ -9,6 +9,7 @@ import { ChangePasswordForm } from "../../auth/pages/ChangePasswordForm"
 import { ESTADO_LABEL, iniciales, ROL_LABEL } from "../../auth/roles"
 import { FOTO_ACCEPT, FOTO_MAX_MB, validarFoto } from "../services/foto"
 import { quitarFoto, subirFoto } from "../services/usersApi"
+import { useConfirmar } from "../../../components/ui/Dialogo"
 
 /** Mi perfil (USR-03, SPEC-02 UC-10/UC-11): datos protegidos en sólo lectura. */
 export function ProfilePage() {
@@ -110,8 +111,16 @@ function CerrarSesiones() {
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null)
   const [ocupado, setOcupado] = useState(false)
 
+  const confirmar = useConfirmar() // SPEC-10 V-11
   const cerrar = async () => {
-    if (!window.confirm("Se van a cerrar tus sesiones en todas las computadoras. Esta pestaña sigue abierta. ¿Continuar?")) return
+    if (
+      !(await confirmar({
+        titulo: "¿Cerrar todas tus sesiones?",
+        mensaje: "Se van a cerrar tus sesiones en todas las computadoras. Esta pestaña sigue abierta.",
+        aceptar: "Cerrar sesiones",
+      }))
+    )
+      return
     setOcupado(true)
     setMensaje(null)
     try {

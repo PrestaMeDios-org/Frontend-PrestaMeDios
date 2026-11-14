@@ -6,7 +6,8 @@ const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ]
-const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+// SPEC-10 V-09: mismas iniciales y estilo que la grilla común (components/ui/calendario).
+const DIAS = ["L", "M", "X", "J", "V", "S", "D"]
 
 const toISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
@@ -20,6 +21,7 @@ export function CalendarGrid({
   selectedFecha,
   onSelectFecha,
   onMonthChange,
+  pendientesPorDia,
 }: {
   reservas: Ocupacion[]
   bloqueos: Bloqueo[]
@@ -27,6 +29,8 @@ export function CalendarGrid({
   selectedFecha: string | null
   onSelectFecha: (iso: string) => void
   onMonthChange?: (view: Date) => void
+  /** Sólo admin (SPEC-10 V-21): solicitudes pendientes por día del espacio, como número en la celda. */
+  pendientesPorDia?: Record<string, number>
 }) {
   const C = useC()
   const hoy = new Date()
@@ -109,16 +113,20 @@ export function CalendarGrid({
             onMonthChange?.(next)
           }}
           style={{
-            border: "none",
-            background: "transparent",
+            width: 30,
+            height: 30,
+            border: `1px solid ${C.border}`,
+            borderRadius: 8,
+            background: C.card,
             cursor: canPrev ? "pointer" : "default",
             color: canPrev ? C.text : C.textFaint,
-            fontSize: 18,
+            fontSize: 16,
+            lineHeight: 1,
           }}
         >
           ‹
         </button>
-        <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 700, color: C.text }}>
+        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, fontWeight: 700, color: C.text }}>
           {MESES[view.getMonth()]} {view.getFullYear()}
         </div>
         <button
@@ -129,11 +137,15 @@ export function CalendarGrid({
             onMonthChange?.(next)
           }}
           style={{
-            border: "none",
-            background: "transparent",
+            width: 30,
+            height: 30,
+            border: `1px solid ${C.border}`,
+            borderRadius: 8,
+            background: C.card,
             cursor: canNext ? "pointer" : "default",
             color: canNext ? C.text : C.textFaint,
-            fontSize: 18,
+            fontSize: 16,
+            lineHeight: 1,
           }}
         >
           ›
@@ -150,7 +162,7 @@ export function CalendarGrid({
         {DIAS.map((d) => (
           <div
             key={d}
-            style={{ fontSize: 11, color: C.textFaint, fontFamily: "'Inter',sans-serif" }}
+            style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, fontFamily: "'Inter',sans-serif", padding: "2px 0" }}
           >
             {d}
           </div>
@@ -176,6 +188,7 @@ export function CalendarGrid({
           const mostrarMotivo = fechaConMotivoVisible === iso && detalleBloqueo.length > 0
           const tooltipId = `motivo-bloqueo-${iso}`
           const ultimaColumna = i % 7 === 6
+          const nPendientes = past ? 0 : (pendientesPorDia?.[iso] ?? 0)
           return (
             <div
               key={iso}
@@ -192,14 +205,25 @@ export function CalendarGrid({
                 style={{
                   width: "100%",
                   padding: "8px 0",
-                  borderRadius: 10,
-                  border: selected ? `2px solid ${C.crimson}` : "1px solid transparent",
-                  background: totalmenteOcupado
-                    ? C.occupiedBg
-                    : tieneOcupacionParcial
-                      ? C.pendingBg
-                      : "transparent",
-                  color: past || bloqueado ? C.textFaint : C.text,
+                  borderRadius: 8,
+                  border: `1.5px solid ${selected ? C.crimson : "transparent"}`,
+                  background: selected
+                    ? C.crimson
+                    : totalmenteOcupado
+                      ? C.occupiedBg
+                      : tieneOcupacionParcial
+                        ? C.pendingBg
+                        : "transparent",
+                  color: selected
+                    ? "white"
+                    : past || bloqueado
+                      ? C.textFaint
+                      : totalmenteOcupado
+                        ? C.occupied
+                        : tieneOcupacionParcial
+                          ? C.pending
+                          : C.text,
+                  fontWeight: 600,
                   cursor: past || bloqueado ? "default" : "pointer",
                   fontFamily: "'Inter',sans-serif",
                   fontSize: 13,
@@ -207,6 +231,32 @@ export function CalendarGrid({
               >
                 {d.getDate()}
               </button>
+              {nPendientes > 0 && (
+                <span
+                  aria-label={`${nPendientes} ${nPendientes === 1 ? "solicitud pendiente" : "solicitudes pendientes"}`}
+                  style={{
+                    position: "absolute",
+                    top: -5,
+                    right: -3,
+                    minWidth: 16,
+                    height: 16,
+                    padding: "0 4px",
+                    boxSizing: "border-box",
+                    borderRadius: 100,
+                    background: selected ? C.card : C.pending,
+                    color: selected ? C.crimson : "white",
+                    border: `1.5px solid ${C.card}`,
+                    fontFamily: "'Outfit',sans-serif",
+                    fontSize: 9.5,
+                    fontWeight: 800,
+                    lineHeight: "13px",
+                    textAlign: "center",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {nPendientes}
+                </span>
+              )}
               {mostrarMotivo && (
                 <span
                   id={tooltipId}

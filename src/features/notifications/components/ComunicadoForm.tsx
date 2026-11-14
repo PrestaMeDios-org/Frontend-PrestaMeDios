@@ -18,7 +18,15 @@ import {
   type OpcionAlcance,
 } from "../services/alcance"
 import { crearComunicado, editarComunicado } from "../services/notificationsApi"
+import { DatePicker } from "../../../components/ui/DatePicker"
+import { SelectorHora } from "../../../components/ui/SelectorHora"
+import { isoDe } from "../../../components/ui/calendario/mes"
+import { hoyLab } from "../../../lib/fechas"
 import type { Comunicado } from "../types"
+import { SelectorPortada } from "../portada/SelectorPortada" // MOMENTÁNEO (SPEC-10 M-02)
+import { aplicarPortada, eleccionDesde, type EleccionPortada, type PortadaDTO } from "../portada/portadaApi" // MOMENTÁNEO (SPEC-10 M-02)
+import { temaDe } from "../services/tema" // MOMENTÁNEO (SPEC-10 M-02)
+import { localAIso } from "../services/fechas" // MOMENTÁNEO (SPEC-10 M-02)
 
 // Alta y edición de un comunicado (NOV-02). El alcance sólo lo elige el SUPERADMIN y sólo
 // en el alta (RN-N2, RN-N5); para el ADMIN_LOCAL la sede la fija el backend.
@@ -26,12 +34,15 @@ export function ComunicadoForm({
   rol,
   sedePropia,
   comunicado,
+  portadaActual,
   onCancelar,
   onGuardado,
 }: {
   rol: RolUsuario
   sedePropia: string | null
   comunicado?: Comunicado
+  /** MOMENTÁNEO (SPEC-10 M-02): portada guardada, al editar. */
+  portadaActual?: PortadaDTO
   onCancelar: () => void
   onGuardado: (mensaje: string) => void
 }) {
@@ -41,8 +52,8 @@ export function ComunicadoForm({
   const [errores, setErrores] = useState<ErroresComunicado>({})
   const [general, setGeneral] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const [portada, setPortada] = useState<EleccionPortada>(() => eleccionDesde(portadaActual)) // MOMENTÁNEO (SPEC-10 M-02)
   const areaStyle = { ...useInputStyle(Boolean(errores.contenido)), minHeight: 140, resize: "vertical" as const }
-  const fechaStyle = useInputStyle(Boolean(errores.vence_en))
 
   const poner = <K extends keyof FormValores>(k: K, v: FormValores[K]) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -56,9 +67,17 @@ export function ComunicadoForm({
       if (comunicado) {
         const cambios = construirEdicion(form, comunicado)
         if (Object.keys(cambios).length) await editarComunicado(comunicado.id, cambios)
+        await aplicarPortada(comunicado.id, portada, eleccionDesde(portadaActual)) // MOMENTÁNEO (SPEC-10 M-02)
         onGuardado("Comunicado actualizado.")
       } else {
-        await crearComunicado(construirAlta(form, rol))
+        const creado = await crearComunicado(construirAlta(form, rol))
+        // MOMENTÁNEO (SPEC-10 M-02): si falla la portada, el comunicado ya quedó publicado.
+        try {
+          await aplicarPortada(creado.id, portada, { tipo: "auto" })
+        } catch (e) {
+          onGuardado(`Comunicado publicado, pero no se pudo guardar la portada: ${mensajeDeError(e)}`)
+          return
+        }
         onGuardado("Comunicado publicado.")
       }
     } catch (e) {
@@ -119,17 +138,48 @@ export function ComunicadoForm({
           hint="Hora del laboratorio. Vacío: queda visible hasta que se archive."
         >
           {(descripcionId) => (
-            <input
-              type="datetime-local"
-              aria-describedby={descripcionId}
-              aria-invalid={Boolean(errores.vence_en)}
-              value={form.venceEn}
-              onChange={(e) => poner("venceEn", e.target.value)}
-              style={fechaStyle}
-            />
+            // SPEC-10 §4.6 (V-01): fecha con el selector común y hora en lista; el valor sigue
+            // siendo "AAAA-MM-DDTHH:mm" como el datetime-local que reemplaza.
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 8 }}>
+              <DatePicker
+                value={form.venceEn.slice(0, 10)}
+                onChange={(iso) => poner("venceEn", iso ? `${iso}T${form.venceEn.slice(11, 16) || "23:30"}` : "")}
+                // Tiene que ser futura (validarComunicado): los días anteriores a hoy van en gris.
+                min={isoDe(hoyLab())}
+                invalido={Boolean(errores.vence_en)}
+                borrable
+                ariaDescribedBy={descripcionId}
+                ariaLabel="Fecha de vencimiento"
+              />
+              <SelectorHora
+                value={form.venceEn.slice(11, 16)}
+                onChange={(h) => form.venceEn && poner("venceEn", `${form.venceEn.slice(0, 10)}T${h}`)}
+                invalido={Boolean(errores.vence_en)}
+                vacio="--:--"
+                ariaLabel="Hora de vencimiento"
+              />
+            </div>
           )}
         </Field>
       </div>
+      {/* MOMENTÁNEO (SPEC-10 M-02): elegir el color o subir una foto de portada */}
+      <Field label="Portada" hint="Automática: el color sale del alcance y del vencimiento.">
+        <SelectorPortada
+          valor={portada}
+          onCambiar={setPortada}
+          comunicadoId={comunicado?.id}
+          temaAutomatico={
+            comunicado
+              ? temaDe(comunicado)
+              : temaDe({
+                  esGlobal: form.alcance === "GLOBAL",
+                  sede: (form.alcance && form.alcance !== "GLOBAL" ? form.alcance : sedePropia) as Comunicado["sede"],
+                  venceEn: form.venceEn ? localAIso(form.venceEn) : null,
+                  vencido: false,
+                })
+          }
+        />
+      </Field>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, color: C.textMuted }}>
         <Button variant="ghost" onClick={onCancelar} disabled={enviando}>
           Cancelar

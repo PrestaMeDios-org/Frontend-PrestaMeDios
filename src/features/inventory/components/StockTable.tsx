@@ -1,6 +1,9 @@
 import { Fragment, useState } from "react"
 import { useC } from "../../../theme"
 import { Badge } from "../../../components/ui/Badge"
+import { Ico } from "../../../components/ui/icons"
+import { AltaGamaBadge } from "./AltaGamaBadge"
+import { rangosDeLockers } from "../services/stockVista"
 import { alternarOrden, ordenarStock, type ColumnaStock, type Sentido } from "../services/ordenar"
 import type { Category, Equipment, Unidad } from "../types"
 import { UnidadesRow, type AccionEstado } from "./UnidadesRow"
@@ -51,6 +54,20 @@ export function StockTable({
     })
 
   const celda = { padding: "11px 14px", fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.text } as const
+  const colorDe = (id: string) => categorias.find((c) => c.id === id)?.color ?? C.textFaint
+  const botonIcono = (color: string) =>
+    ({
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      border: `1px solid ${C.border}`,
+      background: C.card,
+      color,
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: ocupado ? "default" : "pointer",
+    }) as const
 
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, overflow: "hidden" }}>
@@ -98,52 +115,176 @@ export function StockTable({
             const abierto = abiertos.has(e.id)
             return (
               <Fragment key={e.id}>
-                <tr style={{ borderTop: `1px solid ${C.borderLight}`, opacity: e.activo ? 1 : 0.6 }}>
-                  <td style={{ padding: "0 0 0 8px" }}>
+                {/* SPEC-10 V-16: miniatura, chips y barra de disponibles; la fila entera despliega */}
+                <tr
+                  onClick={() => alternar(e.id)}
+                  style={{
+                    borderTop: `1px solid ${C.borderLight}`,
+                    opacity: e.activo ? 1 : 0.6,
+                    cursor: "pointer",
+                    background: abierto ? C.surface : "transparent",
+                  }}
+                >
+                  <td style={{ padding: "0 0 0 12px", width: 36 }}>
                     <button
                       type="button"
-                      onClick={() => alternar(e.id)}
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        alternar(e.id)
+                      }}
                       aria-expanded={abierto}
                       aria-label={`${abierto ? "Ocultar" : "Ver"} unidades de ${e.name}`}
-                      style={{ border: "none", background: "transparent", cursor: "pointer", color: C.textMuted, fontSize: 13 }}
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 7,
+                        border: `1px solid ${abierto ? C.crimson : C.border}`,
+                        background: abierto ? C.crimsonLight : C.card,
+                        color: abierto ? C.crimson : C.textMuted,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        transform: abierto ? "none" : "rotate(-90deg)",
+                        transition: "transform 0.15s",
+                      }}
                     >
-                      {abierto ? "▾" : "▸"}
+                      {Ico.chevDown}
                     </button>
                   </td>
-                  <td style={{ ...celda, fontWeight: 600 }}>
-                    {e.name}
-                    <div style={{ fontSize: 11, color: C.textFaint, fontWeight: 400 }}>{e.code}</div>
-                    {!e.activo && (
-                      <Badge label="Dado de baja" color={C.textMuted} bg={C.bg} />
-                    )}
+                  <td style={{ ...celda, padding: "10px 14px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      {e.image ? (
+                        <img
+                          src={e.image}
+                          alt=""
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 10,
+                            objectFit: "cover",
+                            flexShrink: 0,
+                            border: `1px solid ${C.border}`,
+                            background: C.bg,
+                          }}
+                        />
+                      ) : (
+                        <div
+                          aria-hidden
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 10,
+                            flexShrink: 0,
+                            background: C.bg,
+                            border: `1px solid ${C.border}`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontFamily: "'Outfit',sans-serif",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: C.textFaint,
+                          }}
+                        >
+                          {e.code.slice(0, 3).toUpperCase()}
+                        </div>
+                      )}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 14, fontWeight: 700 }}>{e.name}</span>
+                          {!e.activo && <Badge label="Dado de baja" color={C.textMuted} bg={C.bg} />}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 10.5,
+                            color: C.textFaint,
+                            letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                            marginTop: 2,
+                          }}
+                        >
+                          {e.code}
+                        </div>
+                      </div>
+                    </div>
                   </td>
-                  <td style={celda}>{etiqueta(e.category)}</td>
-                  <td style={celda}>{e.lockers.length ? e.lockers.join(", ") : "—"}</td>
-                  <td style={celda}>{e.altaGama ? "Especial" : "Común"}</td>
                   <td style={celda}>
-                    {e.available_count}/{e.quantity}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5 }}>
+                      <span aria-hidden style={{ width: 8, height: 8, borderRadius: 99, background: colorDe(e.category) }} />
+                      {etiqueta(e.category)}
+                    </span>
+                  </td>
+                  <td style={celda}>
+                    <span style={{ fontSize: 13, color: e.lockers.length ? C.text : C.textFaint }}>
+                      {rangosDeLockers(e.lockers)}
+                    </span>
+                  </td>
+                  <td style={celda}>
+                    {e.altaGama ? <AltaGamaBadge /> : <span style={{ fontSize: 12.5, color: C.textMuted }}>Común</span>}
+                  </td>
+                  <td style={{ ...celda, minWidth: 120 }}>
+                    <div style={{ fontSize: 12.5 }}>
+                      <strong style={{ fontWeight: 700 }}>{e.available_count}</strong>
+                      <span style={{ color: C.textMuted }}> de {e.quantity}</span>
+                    </div>
+                    <div style={{ marginTop: 5, height: 5, borderRadius: 99, background: C.bg, overflow: "hidden", maxWidth: 110 }}>
+                      <div
+                        style={{
+                          width: `${e.quantity ? (100 * e.available_count) / e.quantity : 0}%`,
+                          height: "100%",
+                          borderRadius: 99,
+                          background: e.available_count === 0 ? C.occupied : C.available,
+                        }}
+                      />
+                    </div>
                     {e.maintenance && (
-                      <span style={{ marginLeft: 6, color: C.maintenance, fontSize: 11 }}>En mantenimiento</span>
+                      <div style={{ marginTop: 4, color: C.maintenance, fontSize: 11 }}>Con unidades en mantenimiento</div>
                     )}
                   </td>
-                  <td style={{ ...celda, textAlign: "right", whiteSpace: "nowrap" }}>
-                    <div style={{ display: "inline-flex", gap: 14 }}>
-                    <button
-                      type="button"
-                      onClick={() => onEditarEquipo(e)}
-                      disabled={ocupado}
-                      style={{ border: "none", background: "transparent", color: C.crimson, cursor: "pointer", fontWeight: 600 }}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onCambiarActivo(e)}
-                      disabled={ocupado}
-                      style={{ border: "none", background: "transparent", color: e.activo ? C.occupied : C.available, cursor: "pointer", fontWeight: 600 }}
-                    >
-                      {e.activo ? "Dar de baja" : "Reactivar"}
-                    </button>
+                  <td
+                    style={{ ...celda, textAlign: "right", whiteSpace: "nowrap" }}
+                    onClick={(ev) => ev.stopPropagation()}
+                  >
+                    <div style={{ display: "inline-flex", gap: 6 }}>
+                      <button
+                        type="button"
+                        title="Editar equipo"
+                        aria-label={`Editar ${e.name}`}
+                        onClick={() => onEditarEquipo(e)}
+                        disabled={ocupado}
+                        style={botonIcono(C.textMuted)}
+                      >
+                        {Ico.edit}
+                      </button>
+                      {e.activo ? (
+                        <button
+                          type="button"
+                          title="Dar de baja"
+                          aria-label={`Dar de baja ${e.name}`}
+                          onClick={() => onCambiarActivo(e)}
+                          disabled={ocupado}
+                          style={botonIcono(C.occupied)}
+                        >
+                          {Ico.trash}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onCambiarActivo(e)}
+                          disabled={ocupado}
+                          style={{
+                            ...botonIcono(C.available),
+                            width: "auto",
+                            padding: "0 10px",
+                            fontFamily: "'Outfit',sans-serif",
+                            fontSize: 12,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Reactivar
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

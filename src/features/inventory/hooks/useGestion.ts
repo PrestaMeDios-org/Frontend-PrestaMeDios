@@ -8,6 +8,7 @@ import {
   rehabilitarUnidad,
 } from "../services/inventoryApi"
 import type { Equipment, Unidad } from "../types"
+import { useConfirmar } from "../../../components/ui/Dialogo"
 
 /** Textos de confirmación de las acciones destructivas (SPEC-04 D-03, D-09). */
 export const CONFIRMACION: Record<AccionEstado, (codigo: string) => string | null> = {
@@ -47,22 +48,26 @@ export function useGestion(recargar: () => void) {
     [recargar],
   )
 
+  const confirmar = useConfirmar() // SPEC-10 V-11: diálogo propio en lugar de window.confirm
   const cambiarEstado = useCallback(
     async (unidad: Unidad, accion: AccionEstado) => {
       const aviso = CONFIRMACION[accion](unidad.codigoInventario)
-      if (aviso && !window.confirm(aviso)) return
+      if (aviso && !(await confirmar({ titulo: "¿Confirmás el cambio?", mensaje: aviso }))) return
       await ejecutar(() => ACCION[accion](unidad.id), "No se pudo cambiar el estado de la unidad.")
     },
-    [ejecutar],
+    [ejecutar, confirmar],
   )
 
   const cambiarActivo = useCallback(
     async (equipo: Equipment) => {
       if (
         equipo.activo &&
-        !window.confirm(
-          `¿Dar de baja "${equipo.name}"? Dejará de verse en el catálogo de estudiantes y docentes.`,
-        )
+        !(await confirmar({
+          titulo: `¿Dar de baja "${equipo.name}"?`,
+          mensaje: "Dejará de verse en el catálogo de estudiantes y docentes. Lo podés reactivar después.",
+          aceptar: "Dar de baja",
+          peligro: true,
+        }))
       )
         return
       await ejecutar(
@@ -70,7 +75,7 @@ export function useGestion(recargar: () => void) {
         "No se pudo cambiar el estado del equipo.",
       )
     },
-    [ejecutar],
+    [ejecutar, confirmar],
   )
 
   return { error, ocupado, cambiarEstado, cambiarActivo, limpiarError: () => setError(null) }
