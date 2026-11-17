@@ -1,9 +1,10 @@
 import { useEffect, useState, type CSSProperties } from "react"
 import { Button } from "../../../components/ui/Button"
-import { Alert, Field, SelectField, useInputStyle } from "../../../components/ui/Form"
+import { Alert, Field, SelectField } from "../../../components/ui/Form"
 import { mensajeDeError } from "../../../lib/api"
 import { useC } from "../../../theme"
 import { Modal } from "../../inventory/components/Modal"
+import { DatePicker } from "../../../components/ui/DatePicker"
 import {
   aAjuste,
   aAsignaciones,
@@ -48,7 +49,6 @@ export function AprobarOrdenModal({ orden, nombres, unidades, onClose, onAprobad
   })
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
-  const estiloFecha = useInputStyle(false)
 
   useEffect(() => {
     const control = new AbortController()
@@ -90,12 +90,14 @@ export function AprobarOrdenModal({ orden, nombres, unidades, onClose, onAprobad
   const tenue: CSSProperties = { ...texto, fontSize: 12, color: C.textMuted }
   const fecha = (campo: "fechaRetiro" | "fechaDevolucion", label: string) => (
     <Field label={label}>
-      <input
-        type="date"
-        min={fechaHoyLab()}
+      {/* SPEC-10 §4.6 (V-01): selector de fecha común */}
+      <DatePicker
         value={ajuste[campo]}
-        onChange={(e) => setAjuste((a) => ({ ...a, [campo]: e.target.value }))}
-        style={estiloFecha}
+        onChange={(iso) => setAjuste((a) => ({ ...a, [campo]: iso }))}
+        min={campo === "fechaDevolucion" && ajuste.fechaRetiro ? ajuste.fechaRetiro : fechaHoyLab()}
+        rango={ajuste.fechaRetiro && ajuste.fechaDevolucion ? { desde: ajuste.fechaRetiro, hasta: ajuste.fechaDevolucion } : undefined}
+        atenuarFinDeSemana
+        ariaLabel={label}
       />
     </Field>
   )

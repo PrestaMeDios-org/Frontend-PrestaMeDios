@@ -5,6 +5,7 @@ import { useSede, useUsuario } from "../../auth/AuthContext"
 import { EquipmentCard } from "../components/EquipmentCard"
 import { AgregarAlPedido } from "../components/AgregarAlPedido"
 import { EstadoEquipo } from "../components/EstadoEquipo"
+import { AltaGamaBadge } from "../components/AltaGamaBadge"
 import { EquipmentFormModal } from "../components/EquipmentFormModal"
 import { EquipmentDetailModal } from "../components/EquipmentDetailModal"
 import { CatalogFilters } from "../components/CatalogFilters"
@@ -211,13 +212,19 @@ export function CatalogPage({
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
                     fontFamily: "'Outfit',sans-serif",
                     fontSize: 13.5,
                     fontWeight: 700,
                     color: C.text,
                   }}
                 >
-                  {eq.name}
+                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {eq.name}
+                  </span>
+                  {eq.altaGama && <AltaGamaBadge />}
                 </div>
                 <div
                   style={{
@@ -240,7 +247,8 @@ export function CatalogPage({
                   flexShrink: 0,
                 }}
               >
-                {eq.available_count}/{eq.quantity} uds.
+                <strong style={{ color: C.text, fontWeight: 600 }}>{eq.available_count}</strong> de {eq.quantity}{" "}
+                disponibles
               </span>
               <EstadoEquipo eq={eq} />
               <AgregarAlPedido compacto equipment={eq} role={role} onAddToCart={onAddToCart} />

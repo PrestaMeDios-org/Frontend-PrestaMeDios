@@ -37,9 +37,53 @@ export function AgregarAlPedido({ equipment, role, onAddToCart, compacto = false
 
   const texto = agregado ? "Agregado" : "Agregar al pedido"
 
+  const icono = (tam: number) => (
+    <svg width={tam} height={tam} viewBox="0 0 15 15" fill="none" aria-hidden>
+      {agregado ? (
+        <path d="M2.5 8L6 11.5L12.5 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      ) : (
+        <>
+          <path
+            d="M1 1H2.5L4.5 10H11.5L13.5 4H3.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <circle cx="6" cy="12.5" r="1" fill="currentColor" />
+          <circle cx="10" cy="12.5" r="1" fill="currentColor" />
+        </>
+      )}
+    </svg>
+  )
+
+  // Botón principal del detalle del equipo (SPEC-10 V-07): antes era un <button> sin estilos.
   if (!compacto) {
     return (
-      <button type="button" disabled={disabled} title={motivo ?? undefined} onClick={handleClick}>
+      <button
+        type="button"
+        disabled={disabled}
+        title={motivo ?? undefined}
+        onClick={handleClick}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          padding: "10px 18px",
+          borderRadius: 11,
+          border: "none",
+          background: agregado ? C.available : C.crimson,
+          color: "white",
+          fontFamily: "'Outfit',sans-serif",
+          fontSize: 14,
+          fontWeight: 700,
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.55 : 1,
+          transition: "background 0.15s",
+        }}
+      >
+        {icono(15)}
         {texto}
       </button>
     )
@@ -67,23 +111,7 @@ export function AgregarAlPedido({ equipment, role, onAddToCart, compacto = false
         color: C.crimson,
       }}
     >
-      <svg width="13" height="13" viewBox="0 0 15 15" fill="none" aria-hidden>
-        {agregado ? (
-          <path d="M2.5 8L6 11.5L12.5 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        ) : (
-          <>
-            <path
-              d="M1 1H2.5L4.5 10H11.5L13.5 4H3.5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="6" cy="12.5" r="1" fill="currentColor" />
-            <circle cx="10" cy="12.5" r="1" fill="currentColor" />
-          </>
-        )}
-      </svg>
+      {icono(13)}
     </button>
   )
 }

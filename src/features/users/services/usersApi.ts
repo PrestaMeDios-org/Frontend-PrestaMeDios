@@ -12,13 +12,13 @@ import type {
 const BASE = "/api/v1/users"
 const AUTH = "/api/v1/auth"
 
-export function listarUsuarios(filtros: FiltrosDirectorio = {}): Promise<PaginaUsuariosDTO> {
+export function listarUsuarios(filtros: FiltrosDirectorio = {}, signal?: AbortSignal): Promise<PaginaUsuariosDTO> {
   const params = new URLSearchParams()
   for (const [k, v] of Object.entries(filtros)) {
     if (v !== undefined && v !== null && v !== "") params.set(k, String(v))
   }
   const qs = params.toString()
-  return apiRequest(`${BASE}${qs ? `?${qs}` : ""}`)
+  return apiRequest(`${BASE}${qs ? `?${qs}` : ""}`, { signal })
 }
 
 export const obtenerUsuario = (id: number) => apiRequest<UsuarioDetalleDTO>(`${BASE}/${id}`)

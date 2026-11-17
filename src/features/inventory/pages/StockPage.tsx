@@ -1,10 +1,11 @@
-import { useState } from "react"
+import { useMemo, useState, type CSSProperties } from "react"
 import { useC } from "../../../theme"
 import { Alert } from "../../../components/ui/Form"
 import { Button } from "../../../components/ui/Button"
 import { SearchInput } from "../../../components/ui/Input"
 import { useSede, useUsuario } from "../../auth/AuthContext"
 import { EquipmentFormModal } from "../components/EquipmentFormModal"
+import { LockerTable } from "../components/LockerTable"
 import { StockTable } from "../components/StockTable"
 import { UnidadFormModal } from "../components/UnidadFormModal"
 import { useCatalogo } from "../hooks/useCatalogo"
@@ -26,6 +27,10 @@ export function StockPage() {
   const [filtroSede, setFiltroSede] = useState<Sede | "">("")
   const [q, setQ] = useState("")
   const [dialogo, setDialogo] = useState<Dialogo>(null)
+  // SPEC-10 V-16: chips de categoría como en el catálogo (sólo filtran lo que ya está cargado).
+  const [categoria, setCategoria] = useState("all")
+  // SPEC-10 V-17 (MOMENTÁNEO): ver la misma tabla agrupada por locker.
+  const [vista, setVista] = useState<"equipo" | "locker">("equipo")
 
   const sede = puedeElegir ? filtroSede || sedeVista || undefined : undefined
   const { items, categorias, cargando, error, recargar } = useCatalogo({
@@ -34,6 +39,39 @@ export function StockPage() {
     incluirInactivos: true,
   })
   const gestion = useGestion(recargar)
+  const conteo = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const e of items) c[e.category] = (c[e.category] ?? 0) + 1
+    return c
+  }, [items])
+  const visibles = categoria === "all" ? items : items.filter((e) => e.category === categoria)
+  const chip = (activo: boolean): CSSProperties => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "6px 13px",
+    borderRadius: 100,
+    border: `1.5px solid ${activo ? C.crimson : C.border}`,
+    background: activo ? C.crimson : C.card,
+    color: activo ? "white" : C.textMuted,
+    fontFamily: "'Outfit',sans-serif",
+    fontSize: 12.5,
+    fontWeight: 500,
+    cursor: "pointer",
+  })
+  const contador = (activo: boolean, n: number) => (
+    <span
+      style={{
+        background: activo ? "rgba(255,255,255,0.22)" : C.bg,
+        borderRadius: 100,
+        padding: "0 5px",
+        fontSize: 10.5,
+        fontWeight: 700,
+      }}
+    >
+      {n}
+    </span>
+  )
 
   const cerrar = () => setDialogo(null)
   const guardado = () => {
@@ -79,6 +117,71 @@ export function StockPage() {
         </div>
       </div>
 
+      <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+        <button type="button" aria-pressed={categoria === "all"} onClick={() => setCategoria("all")} style={chip(categoria === "all")}>
+          Todo {contador(categoria === "all", items.length)}
+        </button>
+        {categorias.map((cat) => (
+          <button
+            key={cat.id}
+            type="button"
+            aria-pressed={categoria === cat.id}
+            onClick={() => setCategoria(cat.id)}
+            style={chip(categoria === cat.id)}
+          >
+            {cat.label} {contador(categoria === cat.id, conteo[cat.id] ?? 0)}
+          </button>
+        ))}
+        <div
+          role="group"
+          aria-label="Ver stock por"
+          style={{
+            marginLeft: "auto",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 2,
+            padding: 3,
+            borderRadius: 10,
+            border: `1px solid ${C.border}`,
+            background: C.card,
+          }}
+        >
+          <span
+            style={{
+              padding: "0 8px 0 6px",
+              fontFamily: "'Outfit',sans-serif",
+              fontSize: 10.5,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              color: C.textFaint,
+            }}
+          >
+            VER POR:
+          </span>
+          {(["equipo", "locker"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={vista === v}
+              onClick={() => setVista(v)}
+              style={{
+                padding: "5px 12px",
+                borderRadius: 7,
+                border: "none",
+                background: vista === v ? C.crimson : "transparent",
+                color: vista === v ? "white" : C.textMuted,
+                fontFamily: "'Outfit',sans-serif",
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              {v === "equipo" ? "Equipo" : "Locker"}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {gestion.error && <Alert>{gestion.error}</Alert>}
       {error && <Alert>{error}</Alert>}
 
@@ -86,15 +189,22 @@ export function StockPage() {
         <div role="status" style={{ color: C.textMuted, fontFamily: "'Inter',sans-serif" }}>
           Cargando stock…
         </div>
-      ) : items.length === 0 && !error ? (
+      ) : visibles.length === 0 && !error ? (
         <div style={{ color: C.textMuted, fontFamily: "'Inter',sans-serif", padding: "30px 0", textAlign: "center" }}>
-          {q.trim()
+          {q.trim() || categoria !== "all"
             ? "No hay equipos que coincidan con la búsqueda."
             : "Todavía no hay equipos cargados en esta sede."}
         </div>
+      ) : vista === "locker" ? (
+        <LockerTable
+          items={visibles}
+          ocupado={gestion.ocupado}
+          onEstado={(_e, unidad, accion) => gestion.cambiarEstado(unidad, accion)}
+          onEditarUnidad={(equipo, unidad) => setDialogo({ tipo: "unidad", equipo, unidad })}
+        />
       ) : (
         <StockTable
-          items={items}
+          items={visibles}
           categorias={categorias}
           ocupado={gestion.ocupado}
           onEstado={(_e, unidad, accion) => gestion.cambiarEstado(unidad, accion)}

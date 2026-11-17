@@ -68,7 +68,7 @@ export function CarritoPanel({ onClose, onContinuar }: Props) {
                 <div style={tenue}>
                   {item.codigo} · hasta {item.maxDias} días
                   {item.altaGama && (
-                    <span style={{ color: "#5A2D82", fontWeight: 600 }}>
+                    <span style={{ color: C.premium, fontWeight: 600 }}>
                       {" "}
                       · Alta gama
                     </span>
@@ -135,7 +135,7 @@ export function CarritoPanel({ onClose, onContinuar }: Props) {
             {` (máximo ${MAX_LINEAS} por solicitud)`}
           </span>
           {carrito.requiereAval && (
-            <span style={{ ...tenue, color: "#5A2D82" }}>
+            <span style={{ ...tenue, color: C.premium }}>
               Hay equipos de alta gama: al solicitar vas a tener que adjuntar el
               aval en PDF.
             </span>

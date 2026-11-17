@@ -21,6 +21,9 @@ export interface FiltrosDirectorio {
   rol?: RolUsuario | ""
   estado?: EstadoCuenta | ""
   q?: string
+  /** El backend acepta `apellido` (por defecto) o `created_at` (fecha de alta). */
+  ordenar_por?: "apellido" | "created_at"
+  direccion?: "asc" | "desc"
   limit?: number
   offset?: number
 }

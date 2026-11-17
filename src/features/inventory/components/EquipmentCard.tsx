@@ -2,6 +2,7 @@ import { useC } from "../../../theme"
 import { Ico } from "../../../components/ui/icons"
 import { AgregarAlPedido } from "./AgregarAlPedido"
 import { EstadoEquipo } from "./EstadoEquipo"
+import { AltaGamaBadge } from "./AltaGamaBadge"
 import type { Equipment } from "../types"
 import type { Role } from "../../../types"
 
@@ -30,6 +31,9 @@ export function EquipmentCard({
         border: `1px solid ${C.border}`,
         borderRadius: 16,
         overflow: "hidden",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
         cursor: onSelect ? "pointer" : "default",
         transition: "transform 0.15s,box-shadow 0.15s",
       }}
@@ -135,8 +139,10 @@ export function EquipmentCard({
                 width: 30,
                 height: 30,
                 borderRadius: 8,
-                background: "rgba(255,255,255,0.9)",
-                border: "none",
+                background: C.card,
+                border: `1px solid ${C.border}`,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+                color: C.textMuted,
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -156,8 +162,9 @@ export function EquipmentCard({
                 width: 30,
                 height: 30,
                 borderRadius: 8,
-                background: "rgba(255,255,255,0.9)",
-                border: "none",
+                background: C.card,
+                border: `1px solid ${C.border}`,
+                boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -170,89 +177,76 @@ export function EquipmentCard({
           </div>
         )}
       </div>
-      <div style={{ padding: "12px 14px 14px" }}>
-        <div
-          style={{
-            fontFamily: "'Inter',sans-serif",
-            fontSize: 9.5,
-            color: C.textFaint,
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            marginBottom: 3,
-          }}
-        >
-          {eq.code}
-        </div>
-        <div
-          style={{
-            fontFamily: "'Outfit',sans-serif",
-            fontSize: 14,
-            fontWeight: 700,
-            color: C.text,
-            lineHeight: 1.3,
-            marginBottom: 5,
-          }}
-        >
-          {eq.name}
-        </div>
-        <div
-          style={{
-            fontFamily: "'Inter',sans-serif",
-            fontSize: 11.5,
-            color: C.textMuted,
-            lineHeight: 1.5,
-            marginBottom: eq.altaGama ? 7 : 10,
-          }}
-        >
-          {eq.specs}
-        </div>
-        {eq.altaGama && (
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 5,
-              padding: "3px 9px",
-              borderRadius: 7,
-              background: "#EDE0FF",
-              border: "1px solid #C4A8E060",
-              marginBottom: 10,
-            }}
-          >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path
-                d="M5 1L6.12 3.62L9 3.9L7 5.74L7.63 8.5L5 7.1L2.37 8.5L3 5.74L1 3.9L3.88 3.62L5 1Z"
-                fill="#5A2D82"
-              />
-            </svg>
-            <span
-              style={{
-                fontFamily: "'Inter',sans-serif",
-                fontSize: 10.5,
-                fontWeight: 700,
-                color: "#5A2D82",
-                letterSpacing: "0.02em",
-              }}
-            >
-              Alta Gama
-            </span>
-          </div>
-        )}
+      <div style={{ padding: "12px 14px 14px", flex: 1, display: "flex", flexDirection: "column" }}>
         <div
           style={{
             display: "flex",
-            justifyContent: "space-between",
             alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            minHeight: 18,
+            marginBottom: 4,
           }}
         >
           <span
             style={{
               fontFamily: "'Inter',sans-serif",
-              fontSize: 11,
+              fontSize: 10,
               color: C.textFaint,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
             }}
           >
-            {eq.available_count}/{eq.quantity} uds.
+            {eq.code}
+          </span>
+          {eq.altaGama && <AltaGamaBadge />}
+        </div>
+        <div
+          style={{
+            fontFamily: "'Outfit',sans-serif",
+            fontSize: 14.5,
+            fontWeight: 700,
+            color: C.text,
+            lineHeight: 1.3,
+            marginBottom: 6,
+          }}
+        >
+          {eq.name}
+        </div>
+        <div
+          title={eq.specs}
+          style={{
+            fontFamily: "'Inter',sans-serif",
+            fontSize: 12,
+            color: C.textMuted,
+            lineHeight: 1.5,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {eq.specs}
+        </div>
+        <div
+          style={{
+            marginTop: "auto",
+            paddingTop: 12,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "'Inter',sans-serif",
+              fontSize: 11.5,
+              color: C.textMuted,
+            }}
+          >
+            <strong style={{ color: C.text, fontWeight: 600 }}>{eq.available_count}</strong> de {eq.quantity}{" "}
+            disponibles
           </span>
           <div style={{ width: 30, height: 30, flexShrink: 0 }}>
             <AgregarAlPedido compacto equipment={eq} role={role} onAddToCart={onAddToCart} />

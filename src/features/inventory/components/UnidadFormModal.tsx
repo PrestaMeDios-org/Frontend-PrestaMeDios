@@ -74,7 +74,7 @@ export function UnidadFormModal({
   }
 
   return (
-    <Modal titulo={edicion ? `Editar unidad de ${equipo.name}` : `Nueva unidad de ${equipo.name}`} onClose={onClose} ancho={460}>
+    <Modal titulo={edicion ? `Editar unidad de ${equipo.name}` : `Nueva unidad de ${equipo.name}`} onClose={onClose} ancho={460} cerrarAfuera={false}>
       <TextField
         label="Número de serie"
         value={form.serie}
