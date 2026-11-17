@@ -3,7 +3,7 @@ import { Button } from "../../../components/ui/Button"
 import { Alert, Field, SelectField } from "../../../components/ui/Form"
 import { mensajeDeError } from "../../../lib/api"
 import { useC } from "../../../theme"
-import { Modal } from "../../inventory/components/Modal"
+import { Modal } from "../../../components/ui/Modal"
 import { DatePicker } from "../../../components/ui/DatePicker"
 import {
   aAjuste,
