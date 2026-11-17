@@ -67,7 +67,13 @@ export function ComunicadoForm({
       if (comunicado) {
         const cambios = construirEdicion(form, comunicado)
         if (Object.keys(cambios).length) await editarComunicado(comunicado.id, cambios)
-        await aplicarPortada(comunicado.id, portada, eleccionDesde(portadaActual)) // MOMENTÁNEO (SPEC-10 M-02)
+        // MOMENTÁNEO (SPEC-10 M-02): si falla la portada, los cambios del comunicado ya se guardaron.
+        try {
+          await aplicarPortada(comunicado.id, portada, eleccionDesde(portadaActual))
+        } catch (e) {
+          onGuardado(`Comunicado actualizado, pero no se pudo guardar la portada: ${mensajeDeError(e)}`)
+          return
+        }
         onGuardado("Comunicado actualizado.")
       } else {
         const creado = await crearComunicado(construirAlta(form, rol))

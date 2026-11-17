@@ -50,18 +50,36 @@ export function diasDelPeriodo(retiro: Date, devolucion: Date): number {
 }
 
 /** Las tres cifras de arriba de la bandeja. */
+/** Cuántas órdenes trae cada lista de la Bandeja (la API no devuelve un total). */
+export const LIMITE_BANDEJA = 100
+
+export interface ResumenBandeja {
+  pendientes: number
+  aprobadasHoy: number
+  conObservacion: number
+  /** Si la lista llegó al límite, la cifra es "al menos" (se muestra con "+"). */
+  pendientesAlLimite: boolean
+  aprobadasAlLimite: boolean
+}
+
 export function resumenBandeja(
   pendientes: Orden[],
   aprobadas: Orden[],
   ahora: Date = new Date(),
-): { pendientes: number; aprobadasHoy: number; conObservacion: number } {
+  limite = LIMITE_BANDEJA,
+): ResumenBandeja {
   const hoy = isoLab(ahora)
   return {
     pendientes: pendientes.length,
     aprobadasHoy: aprobadas.filter((o) => o.resueltoEn && isoLab(o.resueltoEn) === hoy).length,
     conObservacion: pendientes.filter((o) => o.observacionDocente?.trim()).length,
+    pendientesAlLimite: pendientes.length >= limite,
+    aprobadasAlLimite: aprobadas.length >= limite,
   }
 }
+
+/** 100 al límite → "100+": la cifra real puede ser mayor. */
+export const cifra = (n: number, alLimite: boolean) => `${n}${alLimite ? "+" : ""}`
 
 /** "Joaquín Prueba" → "JP". */
 export function inicialesDe(nombre: string): string {

@@ -9,7 +9,18 @@ import { MotivoModal } from "../components/MotivoModal"
 import { etiquetasDelStock, mensajeDeErrorValidacion } from "../services/bandeja"
 import { ESTADO_ORDEN_LABEL } from "../services/formato"
 import { BandejaTabla } from "../components/BandejaTabla"
-import { contarPorTipo, fichasDelStock, resumenBandeja, TIPO_LABEL, tipoDe, type FichaEquipo, type TipoSolicitud } from "../services/bandejaVista"
+import {
+  cifra,
+  contarPorTipo,
+  fichasDelStock,
+  LIMITE_BANDEJA,
+  resumenBandeja,
+  TIPO_LABEL,
+  tipoDe,
+  type FichaEquipo,
+  type ResumenBandeja,
+  type TipoSolicitud,
+} from "../services/bandejaVista"
 import { cancelarOrden, descargarAval, listarBandeja, rechazarOrden } from "../services/loansApi"
 import { ESTADOS_ORDEN, type EstadoOrden, type Orden } from "../types"
 
@@ -32,14 +43,14 @@ export function BandejaPage() {
   // SPEC-10 V-14: fichas del stock (imagen, código, alta gama), tipo elegido y resumen de arriba.
   const [fichas, setFichas] = useState<Map<number, FichaEquipo>>(new Map())
   const [tipo, setTipo] = useState<TipoSolicitud>("estudiante")
-  const [resumen, setResumen] = useState<{ pendientes: number; aprobadasHoy: number; conObservacion: number } | null>(null)
+  const [resumen, setResumen] = useState<ResumenBandeja | null>(null)
   const [versionResumen, setVersionResumen] = useState(0)
 
   const cargar = useCallback(
     async (signal?: AbortSignal) => {
       setError(null)
       try {
-        setOrdenes(await listarBandeja({ estado, sede: sedeVista ?? undefined, limit: 100 }, signal))
+        setOrdenes(await listarBandeja({ estado, sede: sedeVista ?? undefined, limit: LIMITE_BANDEJA }, signal))
       } catch (e) {
         if (!signal?.aborted) setError(mensajeDeError(e, "No se pudo cargar la bandeja."))
       }
@@ -71,8 +82,8 @@ export function BandejaPage() {
     const control = new AbortController()
     const sede = sedeVista ?? undefined
     Promise.all([
-      listarBandeja({ estado: "pendiente", sede, limit: 100 }, control.signal),
-      listarBandeja({ estado: "aprobada", sede, limit: 100 }, control.signal),
+      listarBandeja({ estado: "pendiente", sede, limit: LIMITE_BANDEJA }, control.signal),
+      listarBandeja({ estado: "aprobada", sede, limit: LIMITE_BANDEJA }, control.signal),
     ])
       .then(([p, a]) => setResumen(resumenBandeja(p, a)))
       .catch(() => {})
@@ -185,9 +196,10 @@ export function BandejaPage() {
     <div style={{ padding: "24px 28px", flex: 1, overflowY: "auto", display: "grid", gap: 16, alignContent: "start" }}>
       {/* SPEC-10 V-14: resumen, pestañas por estado y por tipo, y tabla */}
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-        {tarjeta(resumen?.pendientes ?? "…", "Total pendientes", C.pending, C.pendingBg)}
-        {tarjeta(resumen?.aprobadasHoy ?? "…", "Aprobadas hoy", C.available, C.availableBg)}
-        {tarjeta(resumen?.conObservacion ?? "…", "Con obs. del docente", C.mine, C.mineBg)}
+        {/* Con la lista al límite, la cifra es "al menos": se muestra "100+" (la API no da el total). */}
+        {tarjeta(resumen ? cifra(resumen.pendientes, resumen.pendientesAlLimite) : "…", "Total pendientes", C.pending, C.pendingBg)}
+        {tarjeta(resumen ? cifra(resumen.aprobadasHoy, resumen.aprobadasAlLimite) : "…", "Aprobadas hoy", C.available, C.availableBg)}
+        {tarjeta(resumen ? cifra(resumen.conObservacion, resumen.pendientesAlLimite) : "…", "Con obs. del docente", C.mine, C.mineBg)}
       </div>
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, overflow: "hidden" }}>
@@ -247,6 +259,11 @@ export function BandejaPage() {
               onVerAval: (orden) => void verAval(orden),
             }}
           />
+        )}
+        {ordenes !== null && ordenes.length >= LIMITE_BANDEJA && (
+          <p style={{ ...tenue, margin: 0, padding: "10px 16px", borderTop: `1px solid ${C.border}` }}>
+            Se muestran las primeras {LIMITE_BANDEJA} solicitudes de este estado; el filtro por tipo se aplica sobre ellas.
+          </p>
         )}
       </div>
 

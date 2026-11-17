@@ -83,31 +83,51 @@ export function UsersPage() {
   const [conteoRol, setConteoRol] = useState<Partial<Record<RolUsuario | "", number>>>({})
   const rolesVisibles = esSuper ? ROLES : ROLES.filter((r) => r !== "SUPERADMIN")
 
-  const cargar = useCallback(() => {
-    setError(null)
-    const [ordenar_por, direccion] = orden.split("-") as ["apellido" | "created_at", "asc" | "desc"]
-    const base = { sede: sedeVista, estado, q: busqueda.length >= 2 ? busqueda : "" }
-    const filtros =
-      pestana === "pendientes"
-        ? { estado: "PENDIENTE_APROBACION" as const, sede: sedeVista, limit: 100, offset: 0 }
-        : { ...base, rol, ordenar_por, direccion, limit: POR_PAGINA, offset }
-    listarUsuarios(filtros)
-      .then(setPagina)
-      .catch((e) => setError(mensajeDeError(e)))
-    // SPEC-10 V-20: cantidad por rol para los chips (sólo el total, `limit: 1`).
-    if (pestana === "directorio")
-      Promise.all(
-        (["", ...ROLES] as const).map((r) =>
-          listarUsuarios({ ...base, rol: r, limit: 1, offset: 0 }).then((p) => [r, p.total] as const),
-        ),
-      )
-        .then((pares) => setConteoRol(Object.fromEntries(pares)))
-        .catch(() => setConteoRol({}))
-  }, [pestana, sedeVista, rol, estado, busqueda, offset, orden])
+  const cargar = useCallback(
+    (signal?: AbortSignal) => {
+      setError(null)
+      const [ordenar_por, direccion] = orden.split("-") as ["apellido" | "created_at", "asc" | "desc"]
+      const filtros =
+        pestana === "pendientes"
+          ? { estado: "PENDIENTE_APROBACION" as const, sede: sedeVista, limit: 100, offset: 0 }
+          : { sede: sedeVista, estado, q: busqueda.length >= 2 ? busqueda : "", rol, ordenar_por, direccion, limit: POR_PAGINA, offset }
+      listarUsuarios(filtros, signal)
+        .then(setPagina)
+        .catch((e) => {
+          if (!signal?.aborted) setError(mensajeDeError(e))
+        })
+    },
+    [pestana, sedeVista, rol, estado, busqueda, offset, orden],
+  )
 
   useEffect(() => {
-    if (pestana !== "nueva") cargar()
+    if (pestana === "nueva") return
+    // Cancela el pedido anterior: una respuesta vieja no pisa a una nueva al escribir rápido.
+    const ac = new AbortController()
+    cargar(ac.signal)
+    return () => ac.abort()
   }, [cargar, pestana])
+
+  // SPEC-10 V-20: cantidad por rol para los chips (sólo el total, `limit: 1`). Aparte de la
+  // lista: paginar, ordenar o elegir un rol no cambia los conteos, así que no se vuelven a pedir.
+  const [versionConteo, setVersionConteo] = useState(0)
+  useEffect(() => {
+    if (pestana !== "directorio") return
+    const ac = new AbortController()
+    const base = { sede: sedeVista, estado, q: busqueda.length >= 2 ? busqueda : "", limit: 1, offset: 0 }
+    Promise.all(
+      (["", ...rolesVisibles] as const).map((r) =>
+        listarUsuarios({ ...base, rol: r }, ac.signal).then((p) => [r, p.total] as const),
+      ),
+    )
+      .then((pares) => setConteoRol(Object.fromEntries(pares)))
+      .catch(() => {
+        if (!ac.signal.aborted) setConteoRol({})
+      })
+    return () => ac.abort()
+    // `rolesVisibles` sólo depende de `esSuper`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pestana, sedeVista, estado, busqueda, esSuper, versionConteo])
 
   useEffect(() => setOffset(0), [rol, estado, busqueda, sedeVista, orden])
 
@@ -132,6 +152,7 @@ export function UsersPage() {
       await cambiarEstado(u.id, accion.destino, motivo)
       setAviso(`${u.nombre} ${u.apellido}: ${ESTADO_LABEL[accion.destino]}.`)
       cargar()
+      setVersionConteo((v) => v + 1) // el estado cambió: los conteos por rol pueden cambiar
     } catch (e) {
       setError(mensajeDeError(e))
     }
@@ -249,6 +270,7 @@ export function UsersPage() {
                 setEditando(null)
                 setAviso(`Cambios guardados para ${u.nombre} ${u.apellido}.`)
                 cargar()
+                setVersionConteo((v) => v + 1) // el rol pudo cambiar
               }}
             />
           )}

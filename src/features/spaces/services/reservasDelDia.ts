@@ -1,7 +1,7 @@
 // Reservas de un día para el administrador (SPEC-10 V-21). Sólo ordena lo que la API ya
 // devuelve: al admin con jurisdicción le llegan solicitante y motivo (SPEC-08 AC-S14); al
 // estudiante, sólo las propias (RN-30), así que esto no se usa en su vista.
-import { SEPARADOR } from "./motivo"
+import { SEPARADOR, SIN_MATERIA } from "./motivo"
 
 interface ReservaDia {
   idEspacio: number
@@ -29,6 +29,8 @@ export function reservaDelTurno<T extends ReservaDia>(reservas: T[], turno: stri
 /** "Taller — Rodaje" → { materia: "Taller", descripcion: "Rodaje" }. Sin separador, todo es la materia. */
 export function separarMotivo(motivo?: string | null): { materia: string; descripcion: string } {
   if (!motivo) return { materia: "", descripcion: "" }
+  // Sólo descripción: `armarMotivo` la guarda como "— Rodaje".
+  if (motivo.startsWith(SIN_MATERIA)) return { materia: "", descripcion: motivo.slice(SIN_MATERIA.length).trim() }
   const i = motivo.indexOf(SEPARADOR)
   if (i < 0) return { materia: motivo.trim(), descripcion: "" }
   return { materia: motivo.slice(0, i).trim(), descripcion: motivo.slice(i + SEPARADOR.length).trim() }

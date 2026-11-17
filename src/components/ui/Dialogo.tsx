@@ -39,18 +39,30 @@ const Ctx = createContext<Api | null>(null)
 
 export function DialogoProvider({ children }: { children: ReactNode }) {
   const [pedido, setPedido] = useState<Pedido | null>(null)
+  // El pedido abierto, también en un ref: si llega otro antes de cerrarlo, el anterior se
+  // resuelve como cancelado en vez de dejar su `await` colgado para siempre.
+  const abierto = useRef<Pedido | null>(null)
+  const resolver = (p: Pedido, valor: boolean | string | null) => {
+    if (p.tipo === "confirmar") p.resolver(valor === true)
+    else p.resolver(typeof valor === "string" ? valor : null)
+  }
+  const abrir = useCallback((nuevo: Pedido) => {
+    if (abierto.current) resolver(abierto.current, null)
+    abierto.current = nuevo
+    setPedido(nuevo)
+  }, [])
   const confirmar = useCallback(
-    (op: OpcionesConfirmar) => new Promise<boolean>((resolver) => setPedido({ tipo: "confirmar", op, resolver })),
-    [],
+    (op: OpcionesConfirmar) => new Promise<boolean>((r) => abrir({ tipo: "confirmar", op, resolver: r })),
+    [abrir],
   )
   const pedirTexto = useCallback(
-    (op: OpcionesTexto) => new Promise<string | null>((resolver) => setPedido({ tipo: "texto", op, resolver })),
-    [],
+    (op: OpcionesTexto) => new Promise<string | null>((r) => abrir({ tipo: "texto", op, resolver: r })),
+    [abrir],
   )
   const cerrar = (valor: boolean | string | null) => {
     if (!pedido) return
-    if (pedido.tipo === "confirmar") pedido.resolver(valor === true)
-    else pedido.resolver(typeof valor === "string" ? valor : null)
+    resolver(pedido, valor)
+    abierto.current = null
     setPedido(null)
   }
   return (

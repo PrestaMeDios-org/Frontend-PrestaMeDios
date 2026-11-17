@@ -26,7 +26,8 @@ export function sumarDias(fecha: string, dias: number): string {
 
 /**
  * Las pendientes que pasan los filtros, de la más próxima a la más lejana. Con `dia` (el que el
- * admin tocó en el calendario) manda el día y se ignora el período.
+ * admin tocó en el calendario) manda el día y se ignora el período. "Próximos N días" va de hoy
+ * a hoy + N − 1; "Todas" incluye también las de días pasados que quedaron sin resolver.
  */
 export function filtrarPendientes<T extends Pendiente>(
   reservas: T[],
@@ -35,7 +36,7 @@ export function filtrarPendientes<T extends Pendiente>(
   const hasta = filtro.periodo === "todas" ? null : sumarDias(filtro.hoy, Number(filtro.periodo) - 1)
   return reservas
     .filter((r) => filtro.idEspacio === "todos" || r.idEspacio === filtro.idEspacio)
-    .filter((r) => (filtro.dia ? r.fecha === filtro.dia : hasta === null || r.fecha <= hasta))
+    .filter((r) => (filtro.dia ? r.fecha === filtro.dia : hasta === null || (r.fecha >= filtro.hoy && r.fecha <= hasta)))
     .sort((a, b) => `${a.fecha}T${a.horaInicio}`.localeCompare(`${b.fecha}T${b.horaInicio}`))
 }
 

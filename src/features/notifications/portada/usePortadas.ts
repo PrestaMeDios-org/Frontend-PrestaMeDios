@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react"
 import { descargarPortada, listarPortadas, type PortadaDTO } from "./portadaApi"
 
+/** Tope de `GET /comunicados/portadas` (backend `MAX_IDS`). */
+const MAX_IDS = 50
+
 /** `version` cambia después de guardar, para volver a pedirlas aunque los ids sean los mismos. */
 export function usePortadas(ids: number[], version = 0): Map<number, PortadaDTO> {
   const [portadas, setPortadas] = useState<Map<number, PortadaDTO>>(new Map())
@@ -13,8 +16,13 @@ export function usePortadas(ids: number[], version = 0): Map<number, PortadaDTO>
       return
     }
     const ac = new AbortController()
-    listarPortadas(clave.split(",").map(Number), ac.signal)
-      .then((lista) => setPortadas(new Map(lista.map((p) => [p.comunicado_id, p]))))
+    // El backend acepta hasta MAX_IDS por pedido: si la página crece, se pide en tandas.
+    const todos = clave.split(",").map(Number)
+    const tandas = Array.from({ length: Math.ceil(todos.length / MAX_IDS) }, (_, i) =>
+      todos.slice(i * MAX_IDS, (i + 1) * MAX_IDS),
+    )
+    Promise.all(tandas.map((t) => listarPortadas(t, ac.signal)))
+      .then((listas) => setPortadas(new Map(listas.flat().map((p) => [p.comunicado_id, p]))))
       .catch(() => {
         if (!ac.signal.aborted) setPortadas(new Map()) // sin portadas: queda el color automático
       })

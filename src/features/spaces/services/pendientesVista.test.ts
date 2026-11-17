@@ -19,6 +19,10 @@ describe("pendientesVista (SPEC-10 V-21)", () => {
     expect(filtrarPendientes(lista, { ...base, periodo: "todas" }).map((x) => x.id)).toEqual([4, 3, 2, 1])
     expect(filtrarPendientes(lista, { ...base, periodo: "7" }).map((x) => x.id)).toEqual([4, 3, 2])
     expect(filtrarPendientes(lista, { ...base, periodo: "7", idEspacio: 1 }).map((x) => x.id)).toEqual([4, 3])
+    // "Próximos" arranca hoy; "Todas" incluye las pasadas sin resolver (revisión del PR #28).
+    const conPasada = [...lista, r(5, 1, "2026-11-10", "09:00")]
+    expect(filtrarPendientes(conPasada, { ...base, periodo: "7" }).map((x) => x.id)).toEqual([4, 3, 2])
+    expect(filtrarPendientes(conPasada, { ...base, periodo: "todas" }).map((x) => x.id)).toEqual([5, 4, 3, 2, 1])
     // El día del calendario manda sobre el período.
     expect(filtrarPendientes(lista, { ...base, periodo: "7", dia: "2026-11-30" }).map((x) => x.id)).toEqual([1])
   })

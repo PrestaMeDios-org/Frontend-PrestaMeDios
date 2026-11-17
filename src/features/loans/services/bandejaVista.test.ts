@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Orden } from "../types"
-import { contarPorTipo, diasDelPeriodo, fechaCorta, inicialesDe, resumenBandeja, tipoDe, type FichaEquipo } from "./bandejaVista"
+import { cifra, contarPorTipo, diasDelPeriodo, fechaCorta, inicialesDe, resumenBandeja, tipoDe, type FichaEquipo } from "./bandejaVista"
 
 const ficha = (altaGama = false): FichaEquipo => ({ nombre: "Equipo", codigo: "X-1", imagen: null, altaGama })
 const fichas = new Map<number, FichaEquipo>([
@@ -56,7 +56,15 @@ describe("bandeja en tabla (SPEC-10 V-14)", () => {
       [orden({ resueltoEn: new Date("2026-11-12T10:00:00-03:00") }), orden({ resueltoEn: new Date("2026-11-11T10:00:00-03:00") })],
       ahora,
     )
-    expect(r).toEqual({ pendientes: 3, aprobadasHoy: 1, conObservacion: 1 })
+    expect(r).toEqual({ pendientes: 3, aprobadasHoy: 1, conObservacion: 1, pendientesAlLimite: false, aprobadasAlLimite: false })
+  })
+
+  it("marca con + las cifras de una lista que llegó al límite (revisión del PR #28)", () => {
+    const r = resumenBandeja([orden(), orden()], [orden()], new Date(), 2)
+    expect(r.pendientesAlLimite).toBe(true)
+    expect(r.aprobadasAlLimite).toBe(false)
+    expect(cifra(r.pendientes, r.pendientesAlLimite)).toBe("2+")
+    expect(cifra(r.aprobadasHoy, r.aprobadasAlLimite)).toBe("0")
   })
 
   it("formatea la fecha corta como en el prototipo", () => {
