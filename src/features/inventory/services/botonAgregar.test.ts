@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { motivoNoAgregable, muestraBotonAgregar } from "./carrito"
+import { motivoNoAgregable, muestraBotonAgregar } from "./botonAgregar"
 import type { Equipment } from "../types"
 
 const eq = (p: Partial<Equipment> = {}): Equipment => ({
