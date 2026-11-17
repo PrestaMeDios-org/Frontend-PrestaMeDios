@@ -13,7 +13,7 @@ import {
 } from "../services/altas"
 import { agregarUnidad, editarUnidad } from "../services/inventoryApi"
 import { SEDES, type Equipment, type Unidad } from "../types"
-import { Modal } from "./Modal"
+import { Modal } from "../../../components/ui/Modal"
 
 // Alta de una unidad en un ítem existente (PRE-19) o edición de serie, código y locker (PRE-12).
 // La sede no se edita (SPEC-04 RN-I1) y sólo la elige el SUPERADMIN al crear.

@@ -1,7 +1,7 @@
 import type { Role } from "../../../types"
 import { useC } from "../../../theme"
 import type { Equipment, Sede } from "../types"
-import { Modal } from "./Modal"
+import { Modal } from "../../../components/ui/Modal"
 import { MiniCalendario } from "./MiniCalendario"
 import { AgregarAlPedido } from "./AgregarAlPedido"
 import { AltaGamaBadge } from "./AltaGamaBadge"

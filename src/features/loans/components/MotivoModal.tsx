@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Button } from "../../../components/ui/Button"
 import { Alert, Field, useInputStyle } from "../../../components/ui/Form"
-import { Modal } from "../../inventory/components/Modal"
+import { Modal } from "../../../components/ui/Modal"
 
 interface Props {
   titulo: string

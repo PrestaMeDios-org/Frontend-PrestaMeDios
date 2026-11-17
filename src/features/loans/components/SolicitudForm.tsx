@@ -4,7 +4,7 @@ import { Alert, Field, SelectField, useInputStyle } from "../../../components/ui
 import { ApiError, mensajeDeError } from "../../../lib/api"
 import { useC } from "../../../theme"
 import { useUsuario } from "../../auth/AuthContext"
-import { Modal } from "../../inventory/components/Modal"
+import { Modal } from "../../../components/ui/Modal"
 import { DatePicker } from "../../../components/ui/DatePicker"
 import { useDisponibilidadPedido } from "../hooks/useDisponibilidadPedido"
 import { infoDiaRetiro, ultimaDevolucion } from "../services/calendarioPedido"

@@ -18,7 +18,7 @@ import {
 } from "../services/altas"
 import { crearEquipamiento, editarEquipamiento } from "../services/inventoryApi"
 import { SEDES, type Category, type Equipment } from "../types"
-import { Modal } from "./Modal"
+import { Modal } from "../../../components/ui/Modal"
 import { VistaPreviaEquipo } from "./VistaPreviaEquipo"
 import { useAuth } from "../../auth/AuthContext"
 
