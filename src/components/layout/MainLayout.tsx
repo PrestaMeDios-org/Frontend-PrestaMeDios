@@ -23,6 +23,7 @@ export function MainLayout({
   cartCount = 0,
   cartType = null,
   onCartOpen,
+  aviso,
 }: {
   children: ReactNode
   role: Role
@@ -40,6 +41,8 @@ export function MainLayout({
   cartCount?: number
   cartType?: CartType
   onCartOpen?: () => void
+  /** Aviso no bloqueante sobre el contenido (por ejemplo, teléfono faltante, SPEC-09). */
+  aviso?: ReactNode
 }) {
   const C = useC()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -90,6 +93,7 @@ export function MainLayout({
             overflow: "hidden",
           }}
         >
+          {aviso}
           {children}
         </main>
       </div>

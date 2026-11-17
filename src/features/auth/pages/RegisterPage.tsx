@@ -5,9 +5,10 @@ import { ApiError, mensajeDeError } from "../../../lib/api"
 import { registrar } from "../authApi"
 import { errorPassword } from "../roles"
 import { SEDES, type RegistroDTO, type Sede } from "../types"
+import { validarTelefono } from "../../users/services/telefono"
 import { AuthLayout, LinkButton } from "./AuthLayout"
 
-type Campos = Omit<RegistroDTO, "telefono"> & { telefono: string; confirmacion: string }
+type Campos = RegistroDTO & { confirmacion: string }
 
 const INICIAL: Campos = {
   email: "",
@@ -31,8 +32,8 @@ export function validarRegistro(c: Campos): Partial<Record<keyof Campos, string>
   if (!c.nombre.trim()) errores.nombre = "Obligatorio."
   if (!c.apellido.trim()) errores.apellido = "Obligatorio."
   if (!/^\d{7,8}$/.test(c.dni.trim())) errores.dni = "7 u 8 dígitos, sin puntos."
-  if (c.telefono.trim() && !/^\+?[0-9 -]{6,20}$/.test(c.telefono.trim()))
-    errores.telefono = "Sólo números, espacios, guiones y + inicial."
+  const telefono = validarTelefono(c.telefono) // obligatorio (USR-05, SPEC-09 RN-86)
+  if (telefono) errores.telefono = telefono
   return errores
 }
 
@@ -57,7 +58,7 @@ export function RegisterPage({ onVolver }: { onVolver: () => void }) {
     setEnviando(true)
     try {
       const { confirmacion: _confirmacion, telefono, ...resto } = c
-      await registrar({ ...resto, telefono: telefono.trim() || null })
+      await registrar({ ...resto, telefono: telefono.trim() })
       setListo(true)
     } catch (err) {
       if (err instanceof ApiError) setCamposServidor(err.campos)
@@ -88,7 +89,7 @@ export function RegisterPage({ onVolver }: { onVolver: () => void }) {
           <TextField label="Apellido" value={c.apellido} onChange={set("apellido")} error={error("apellido")} />
           <TextField label="DNI" value={c.dni} onChange={set("dni")} error={error("dni")} />
           <TextField
-            label="Teléfono (opcional)"
+            label="Teléfono"
             value={c.telefono}
             onChange={set("telefono")}
             error={error("telefono")}

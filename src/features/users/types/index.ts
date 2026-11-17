@@ -34,7 +34,7 @@ export interface UsuarioAdminCreateDTO {
   nombre: string
   apellido: string
   dni: string
-  telefono?: string | null
+  telefono: string // obligatorio (USR-05, SPEC-09 RN-86)
   rol: RolUsuario
   sede: Sede | null
 }

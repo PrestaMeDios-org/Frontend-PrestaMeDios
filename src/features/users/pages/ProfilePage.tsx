@@ -8,6 +8,7 @@ import { actualizarMe, cerrarTodasLasSesiones } from "../../auth/authApi"
 import { ChangePasswordForm } from "../../auth/pages/ChangePasswordForm"
 import { ESTADO_LABEL, iniciales, ROL_LABEL } from "../../auth/roles"
 import { FOTO_ACCEPT, FOTO_MAX_MB, validarFoto } from "../services/foto"
+import { validarCambioTelefono } from "../services/telefono"
 import { quitarFoto, subirFoto } from "../services/usersApi"
 import { useConfirmar } from "../../../components/ui/Dialogo"
 
@@ -30,10 +31,12 @@ export function ProfilePage() {
     setMensaje(null)
     setCampos({})
     if (!cambiaEmail && !cambiaTelefono) return
+    const errTelefono = validarCambioTelefono(telefono, usuario.telefono) // RN-88
+    if (errTelefono) return setCampos({ telefono: errTelefono })
     setGuardando(true)
     try {
       const actualizado = await actualizarMe({
-        ...(cambiaTelefono ? { telefono: telefono.trim() || null } : {}),
+        ...(cambiaTelefono ? { telefono: telefono.trim() } : {}),
         ...(cambiaEmail ? { email: email.trim(), password_actual: passwordActual } : {}),
       })
       setUsuario(actualizado)
