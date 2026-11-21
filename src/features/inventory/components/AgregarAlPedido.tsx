@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent } from "react"
 import { useC } from "../../../theme"
 import type { Role } from "../../../types"
 import type { Equipment } from "../types"
-import { motivoNoAgregable, muestraBotonAgregar } from "../services/carrito"
+import { motivoNoAgregable, muestraBotonAgregar } from "../services/botonAgregar"
 
 interface Props {
   equipment: Equipment

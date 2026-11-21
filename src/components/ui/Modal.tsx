@@ -1,8 +1,8 @@
 import { useEffect, type ReactNode } from "react"
-import { useC } from "../../../theme"
-import { Ico } from "../../../components/ui/icons"
+import { useC } from "../../theme"
+import { Ico } from "./icons"
 
-// Diálogo simple para los formularios de inventario (cierra con Escape o clic afuera).
+// Diálogo simple (formularios de inventario y préstamos) (cierra con Escape o clic afuera).
 // SPEC-10 (V-07): `subtitulo`, `extraTitulo`, `conCerrar` y `pie` son opcionales. Sin ellos,
 // el diálogo se ve exactamente como antes; con ellos, tiene encabezado con X, cuerpo con
 // scroll y un pie fijo que queda siempre visible.

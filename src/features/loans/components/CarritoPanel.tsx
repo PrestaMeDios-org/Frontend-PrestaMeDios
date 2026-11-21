@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react"
 import { useC } from "../../../theme"
 import { Button } from "../../../components/ui/Button"
-import { Modal } from "../../inventory/components/Modal"
+import { Modal } from "../../../components/ui/Modal"
 import { useCarrito } from "../CarritoContext"
 import { MAX_LINEAS } from "../services/carrito"
 
