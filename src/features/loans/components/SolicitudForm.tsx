@@ -170,7 +170,7 @@ export function SolicitudForm({ onClose, onVerSolicitudes }: Props) {
           </section>
 
           <p style={tenue}>
-            Horario de retiro y devolución: de {reglas.horarioApertura} a {reglas.horarioCierre}. El retiro se
+            Horario de retiro y devolución en {reglas.sede}: de {reglas.horarioApertura} a {reglas.horarioCierre}. El retiro se
             pide con al menos {reglas.anticipacionMinHoras} horas de anticipación.
           </p>
 

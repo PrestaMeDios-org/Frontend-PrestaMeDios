@@ -17,6 +17,7 @@ import type {
   OrdenPedidoEstadoUpdateDTO,
   Reglas,
   ReglasDTO,
+  Sede,
   SolicitudNueva,
 } from "../types"
 import {
@@ -50,9 +51,12 @@ export function construirQuery(filtros: object): string {
 
 // ─── Fase 1: solicitante ──────────────────────────────────────────────────────
 
-/** Horario, anticipación y plazos vigentes, para armar el formulario (PRE-06, PRE-07). */
-export async function obtenerReglas(signal?: AbortSignal): Promise<Reglas> {
-  return toReglas(await request<ReglasDTO>("/reglas", { signal }))
+/**
+ * Horario de la sede, anticipación y plazos vigentes (PRE-06, PRE-07, AC-L63). Sin `sede`,
+ * los de la sede del usuario; el superadmin tiene que indicarla (si no, `422 SEDE_REQUERIDA`).
+ */
+export async function obtenerReglas(signal?: AbortSignal, sede?: Sede): Promise<Reglas> {
+  return toReglas(await request<ReglasDTO>(`/reglas${construirQuery({ sede })}`, { signal }))
 }
 
 /**

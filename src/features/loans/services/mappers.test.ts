@@ -42,6 +42,7 @@ describe("toReglas", () => {
   it("acorta las horas a HH:MM y pasa los nombres a camelCase", () => {
     expect(
       toReglas({
+        sede: "Río Grande",
         horario_apertura: "09:00:00",
         horario_cierre: "16:30:00",
         anticipacion_min_horas: 24,
@@ -50,6 +51,7 @@ describe("toReglas", () => {
         tolerancia_retiro_horas: 2,
       }),
     ).toEqual({
+      sede: "Río Grande",
       horarioApertura: "09:00",
       horarioCierre: "16:30",
       anticipacionMinHoras: 24,

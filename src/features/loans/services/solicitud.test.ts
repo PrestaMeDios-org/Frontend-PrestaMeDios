@@ -18,6 +18,7 @@ import {
 } from "./solicitud"
 
 const REGLAS: Reglas = {
+  sede: "Ushuaia",
   horarioApertura: "09:00",
   horarioCierre: "16:00",
   anticipacionMinHoras: 24,

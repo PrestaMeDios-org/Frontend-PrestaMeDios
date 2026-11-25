@@ -68,6 +68,7 @@ describe("solicitante", () => {
   it("obtenerReglas pide /reglas con el token y mapea la respuesta", async () => {
     tokenStore.set("tok")
     const fetchMock = responder({
+      sede: "Ushuaia",
       horario_apertura: "09:00:00",
       horario_cierre: "16:00:00",
       anticipacion_min_horas: 24,
@@ -82,6 +83,24 @@ describe("solicitante", () => {
       "Bearer tok",
     )
     expect(reglas.horarioApertura).toBe("09:00")
+    expect(reglas.sede).toBe("Ushuaia")
+  })
+
+  it("obtenerReglas pide la sede indicada (superadmin, AC-L63)", async () => {
+    const fetchMock = responder({
+      sede: "Río Grande",
+      horario_apertura: "10:00:00",
+      horario_cierre: "17:00:00",
+      anticipacion_min_horas: 24,
+      max_dias_general: 4,
+      max_dias_notebook: 15,
+      tolerancia_retiro_horas: 2,
+    })
+    const reglas = await obtenerReglas(undefined, "Río Grande")
+    const url = new URL(llamada(fetchMock).url, "http://localhost")
+    expect(url.pathname).toBe("/api/v1/loans/reglas")
+    expect(url.searchParams.get("sede")).toBe("Río Grande")
+    expect(reglas.horarioApertura).toBe("10:00")
   })
 
   it("crearOrden hace POST /ordenes con el payload en snake_case", async () => {

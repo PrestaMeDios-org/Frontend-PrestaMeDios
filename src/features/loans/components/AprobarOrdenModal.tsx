@@ -52,7 +52,7 @@ export function AprobarOrdenModal({ orden, nombres, unidades, onClose, onAprobad
 
   useEffect(() => {
     const control = new AbortController()
-    Promise.all([obtenerUnidadesLibres(orden.id, control.signal), obtenerReglas(control.signal)])
+    Promise.all([obtenerUnidadesLibres(orden.id, control.signal), obtenerReglas(control.signal, orden.sede)])
       .then(([libres, r]) => {
         setLineas(libres)
         setSeleccion(asignacionInicial(libres))
@@ -63,7 +63,7 @@ export function AprobarOrdenModal({ orden, nombres, unidades, onClose, onAprobad
         if (!control.signal.aborted) setError(mensajeDeError(e, "No se pudieron cargar las unidades libres."))
       })
     return () => control.abort()
-  }, [orden.id])
+  }, [orden.id, orden.sede])
 
   const etiqueta = (id: number) => unidades.get(id) ?? `Unidad #${id}`
   const horas = reglas ? opcionesDeHora(reglas.horarioApertura, reglas.horarioCierre) : []

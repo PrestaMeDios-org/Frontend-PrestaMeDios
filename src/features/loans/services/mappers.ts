@@ -21,6 +21,7 @@ const horaCorta = (hora: string) => hora.slice(0, 5)
 
 export function toReglas(dto: ReglasDTO): Reglas {
   return {
+    sede: dto.sede,
     horarioApertura: horaCorta(dto.horario_apertura),
     horarioCierre: horaCorta(dto.horario_cierre),
     anticipacionMinHoras: dto.anticipacion_min_horas,

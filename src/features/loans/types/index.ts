@@ -29,6 +29,8 @@ export type SituacionOrden = "en_curso" | "finalizada"
 // Las fechas viajan como ISO 8601 con zona horaria (AwareDatetime).
 
 export interface ReglasDTO {
+  /** Sede cuyo horario se informa (AC-L63): la del usuario o la de `?sede=` (superadmin). */
+  sede: Sede
   /** "HH:MM:SS" */
   horario_apertura: string
   horario_cierre: string
@@ -109,6 +111,7 @@ export interface OrdenPedidoEstadoUpdateDTO {
 // ─── View models de UI (derivados en services/mappers.ts) ─────────────────────
 
 export interface Reglas {
+  sede: Sede
   /** "HH:MM" */
   horarioApertura: string
   horarioCierre: string
