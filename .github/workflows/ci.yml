@@ -1,0 +1,50 @@
+# Integración continua del frontend (SPEC-11 §5.2, plan §7.2).
+# Sin secretos del repositorio (RN-P04).
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: Tipos, tests y build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Dependencias
+        run: npm ci --no-audit --no-fund
+
+      - name: Tipos
+        run: npm run typecheck
+
+      - name: Tests (Vitest)
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+  imagen:
+    name: Imagen Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Imagen de producción
+        run: docker build -t prestamedios-web:ci .
