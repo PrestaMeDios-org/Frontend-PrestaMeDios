@@ -14,6 +14,7 @@ Aplicación web del sistema de préstamos de equipamiento y reservas de espacios
 
 1. [Requisitos previos](#requisitos-previos)
 2. [Instalación y puesta en marcha](#instalación-y-puesta-en-marcha)
+   - [Imagen de producción](#imagen-de-producción)
 3. [Variables de entorno](#variables-de-entorno)
 4. [Scripts](#scripts)
 5. [Arquitectura y estructura](#arquitectura-y-estructura)
@@ -40,6 +41,23 @@ npm run dev                    # http://localhost:8443
 ```
 
 El servidor de desarrollo escucha en el puerto **8443**, que es el origen permitido por defecto en el CORS del backend.
+
+### Imagen de producción
+
+`Dockerfile` compila la app y la sirve con nginx (SPEC-11, Fase A). nginx también reenvía `/api/` y `/health` a la API, así que en producción el frontend y la API comparten el dominio y no hace falta CORS.
+
+```bash
+docker build -t prestamedios-web .
+# Con la API del compose del backend levantada:
+docker run --rm -p 8090:80 --network backend-prestamedios_default -e API_UPSTREAM=api:8000 prestamedios-web
+```
+
+- `VITE_API_URL` es un argumento de build y va **vacío** por defecto: la app llama a `/api/v1/…` en el mismo origen. La misma imagen sirve para cualquier dominio.
+- `API_UPSTREAM` (al correr) es la dirección de la API vista desde nginx; por defecto `api:8000`.
+- `index.html` se sirve sin caché y `assets/` con caché larga, así una versión nueva se ve al recargar.
+- La configuración está en `nginx.conf` (plantilla: nginx reemplaza `${API_UPSTREAM}` al arrancar).
+
+Para desarrollar se sigue usando `npm run dev`.
 
 ---
 
