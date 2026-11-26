@@ -8,6 +8,7 @@ import {
   leerTiemposToken,
   vencido,
 } from "./renovacion"
+import { esDuenoDelToken } from "./sesion"
 import type { Sede, TokenResponseDTO, UsuarioPublicoDTO } from "./types"
 
 // ─── Sesión (SPEC-02 §6.1) ────────────────────────────────────────────────────
@@ -36,15 +37,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAviso(mensaje ?? null)
   }, [])
 
-  // Rehidratación al recargar la página (AC-50).
+  // Rehidratación al recargar la página (AC-50). Sólo se usa un `/auth/me` del dueño
+  // del token de esta pestaña (SPEC-12 RN-92): otro usuario es una respuesta ajena.
   useEffect(() => {
-    if (!tokenStore.get()) return
+    const token = tokenStore.get()
+    if (!token) return
     authApi
       .obtenerMe()
-      .then(setUsuario)
+      .then((me) => {
+        if (tokenStore.get() !== token) return // se cerró o cambió la sesión mientras tanto
+        if (esDuenoDelToken(me.id, token)) return setUsuario(me)
+        logout("No pudimos confirmar tu sesión. Iniciá sesión nuevamente.")
+      })
       .catch(() => tokenStore.clear())
       .finally(() => setCargando(false))
-  }, [])
+  }, [logout])
 
   // Cierre de sesión ante un 401 TOKEN_* en cualquier pantalla (AC-53).
   useEffect(
