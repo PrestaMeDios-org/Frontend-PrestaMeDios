@@ -68,6 +68,14 @@ describe("apiRequest", () => {
     expect(init?.body).toBe('{"a":1}')
   })
 
+  it("pide sin caché del navegador (SPEC-12 RN-91)", async () => {
+    tokenStore.set("abc")
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => respuesta(200, {}))
+    await apiRequest("/api/v1/auth/me")
+    await apiRequest("/login", { auth: false, method: "POST", json: {} })
+    expect(fetchMock.mock.calls.map(([, init]) => init?.cache)).toEqual(["no-store", "no-store"])
+  })
+
   it("no envía el token cuando auth es false", async () => {
     tokenStore.set("abc")
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(respuesta(200, {}))

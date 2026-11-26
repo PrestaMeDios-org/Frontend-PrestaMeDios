@@ -126,6 +126,9 @@ export async function apiRequest<T>(path: string, init: ApiInit = {}): Promise<T
   let res: Response
   try {
     res = await fetch(url, {
+      // Nunca de la caché del navegador: una pestaña duplicada podía recibir la
+      // respuesta de otro usuario (SPEC-12 RN-91).
+      cache: "no-store",
       ...rest,
       headers: {
         ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
