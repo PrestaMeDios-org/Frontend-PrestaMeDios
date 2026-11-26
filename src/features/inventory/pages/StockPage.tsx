@@ -5,6 +5,7 @@ import { Button } from "../../../components/ui/Button"
 import { SearchInput } from "../../../components/ui/Input"
 import { useSede, useUsuario } from "../../auth/AuthContext"
 import { EquipmentFormModal } from "../components/EquipmentFormModal"
+import { HistorialUnidadModal } from "../components/HistorialUnidadModal"
 import { LockerTable } from "../components/LockerTable"
 import { StockTable } from "../components/StockTable"
 import { UnidadFormModal } from "../components/UnidadFormModal"
@@ -15,11 +16,12 @@ import { SEDES, type Equipment, type Sede, type Unidad } from "../types"
 type Dialogo =
   | { tipo: "equipo"; modo: "alta" | "edicion"; equipo?: Equipment }
   | { tipo: "unidad"; equipo: Equipment; unidad?: Unidad }
+  | { tipo: "historial"; equipo: Equipment; unidad: Unidad }
   | null
 
 // Control de stock para administradores (PRE-12, PRE-14, PRE-19): tabla ordenable por sede
-// con las unidades desplegables. La disponibilidad por fechas y el historial de usuarios por
-// unidad llegan en la Fase B, cuando el módulo de préstamos exponga esos datos (SPEC-04 §5.4–5.5).
+// con las unidades desplegables. Fase C (SPEC-04 §8.3): historial de usuarios por unidad y aviso
+// de reservas afectadas al pasar una unidad a mantenimiento o baja (PRE-12, PRE-17).
 export function StockPage() {
   const C = useC()
   const usuario = useUsuario()
@@ -182,6 +184,16 @@ export function StockPage() {
         </div>
       </div>
 
+      {gestion.aviso && (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <Alert tipo="info">{gestion.aviso}</Alert>
+          </div>
+          <Button variant="ghost" onClick={gestion.cerrarAviso}>
+            Entendido
+          </Button>
+        </div>
+      )}
       {gestion.error && <Alert>{gestion.error}</Alert>}
       {error && <Alert>{error}</Alert>}
 
@@ -212,6 +224,7 @@ export function StockPage() {
           onAgregarUnidad={(equipo) => setDialogo({ tipo: "unidad", equipo })}
           onEditarEquipo={(equipo) => setDialogo({ tipo: "equipo", modo: "edicion", equipo })}
           onCambiarActivo={gestion.cambiarActivo}
+          onHistorial={(equipo, unidad) => setDialogo({ tipo: "historial", equipo, unidad })}
         />
       )}
 
@@ -224,6 +237,9 @@ export function StockPage() {
           onClose={cerrar}
           onGuardado={guardado}
         />
+      )}
+      {dialogo?.tipo === "historial" && (
+        <HistorialUnidadModal unidad={dialogo.unidad} nombreEquipo={dialogo.equipo.name} onClose={cerrar} />
       )}
       {dialogo?.tipo === "unidad" && (
         <UnidadFormModal

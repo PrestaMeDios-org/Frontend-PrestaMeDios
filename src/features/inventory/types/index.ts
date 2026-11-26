@@ -26,6 +26,14 @@ export interface UnidadFisicaDTO {
   estado: EstadoUnidad
 }
 
+/** Respuesta de `PATCH /unidades/{id}/estado` (SPEC-04 §5.3, PRE-17). */
+export interface UnidadEstadoDTO extends UnidadFisicaDTO {
+  /** Reservas aprobadas desde ahora; `null` si no pasó a mantenimiento o baja. */
+  reservas_afectadas: number | null
+  /** Ids de esas órdenes, sin repetir y en orden de retiro. */
+  ordenes_afectadas: number[] | null
+}
+
 export interface UnidadFisicaCreateDTO {
   numero_serie: string
   codigo_inventario: string
@@ -150,4 +158,47 @@ export interface DisponibilidadDTO {
   hasta: string
   unidades_asignables: number
   dias: DiaDisponibilidadDTO[]
+}
+
+// --- Historial de usuarios por unidad (SPEC-04 §5.5, PRE-12) ---
+/** Estados de una línea de préstamo, tal como los define `loans` (SPEC-05). */
+export type EstadoLineaPrestamo =
+  | "pendiente"
+  | "reservado"
+  | "entregado"
+  | "devuelto"
+  | "cancelado"
+  | "rechazado"
+  | "no_retirado"
+
+export interface SolicitanteResumenDTO {
+  id: number
+  nombre: string
+  apellido: string
+}
+
+export interface MovimientoUnidadDTO {
+  orden_id: number
+  detalle_id: number
+  solicitante: SolicitanteResumenDTO | null
+  estado: EstadoLineaPrestamo
+  retiro_pactado: string
+  devolucion_pactada: string
+  entregado_en: string | null
+  devuelto_en: string | null
+  observacion_devolucion: string | null
+}
+
+/** Una fila del historial, lista para mostrar (textos ya formateados, "—" si falta). */
+export interface MovimientoUnidad {
+  id: number
+  ordenId: number
+  solicitante: string
+  estado: EstadoLineaPrestamo
+  estadoTexto: string
+  retiro: string
+  devolucion: string
+  entregado: string
+  devuelto: string
+  observacion: string
 }

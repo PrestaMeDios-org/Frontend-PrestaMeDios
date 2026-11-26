@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { cambiarEstadoUnidad, construirQuery, darDeBajaUnidad, listarEquipamiento, ponerEnMantenimiento } from "./inventoryApi"
+import {
+  cambiarEstadoUnidad,
+  construirQuery,
+  darDeBajaUnidad,
+  listarEquipamiento,
+  listarHistorialUnidad,
+  ponerEnMantenimiento,
+} from "./inventoryApi"
 
 describe("construirQuery", () => {
   it("omite filtros vacíos o en false", () => {
@@ -56,5 +63,15 @@ describe("llamadas a la API", () => {
     expect(JSON.parse(ultima(m).init.body as string)).toEqual({ estado: "baja" })
     await cambiarEstadoUnidad(4, "disponible")
     expect(JSON.parse(ultima(m).init.body as string)).toEqual({ estado: "disponible" })
+  })
+
+  it("pide el historial de la unidad con limit y offset (SPEC-04 §5.5)", async () => {
+    const m = simular()
+    await listarHistorialUnidad(9, { limit: 20, offset: 40 })
+    const { url, init } = ultima(m)
+    expect(url).toContain("/api/v1/inventory/unidades/9/historial?")
+    expect(url).toContain("limit=20")
+    expect(url).toContain("offset=40")
+    expect(init.method ?? "GET").toBe("GET")
   })
 })

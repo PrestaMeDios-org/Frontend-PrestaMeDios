@@ -6,7 +6,9 @@ import type {
   EquipamientoDTO,
   EquipamientoUpdateDTO,
   EstadoUnidad,
+  MovimientoUnidadDTO,
   Sede,
+  UnidadEstadoDTO,
   UnidadFisicaCreateDTO,
   UnidadFisicaDTO,
   UnidadFisicaUpdateDTO,
@@ -86,10 +88,11 @@ export function editarUnidad(
   return request(`/unidades/${unidadId}`, { method: "PATCH", json: cambios })
 }
 
+/** Devuelve también las reservas afectadas al pasar a mantenimiento o baja (PRE-17). */
 export function cambiarEstadoUnidad(
   unidadId: number,
   estado: EstadoUnidad,
-): Promise<UnidadFisicaDTO> {
+): Promise<UnidadEstadoDTO> {
   return request(`/unidades/${unidadId}/estado`, { method: "PATCH", json: { estado } })
 }
 
@@ -109,4 +112,14 @@ export function obtenerDisponibilidad(
   const qs = new URLSearchParams({ desde: params.desde, hasta: params.hasta })
   if (params.sede) qs.set("sede", params.sede)
   return request(`/equipamiento/${id}/disponibilidad?${qs.toString()}`, { signal })
+}
+
+/** Historial de usuarios de una unidad, del más reciente al más antiguo (PRE-12, §5.5). */
+export function listarHistorialUnidad(
+  unidadId: number,
+  pagina: { limit: number; offset: number },
+  signal?: AbortSignal,
+): Promise<MovimientoUnidadDTO[]> {
+  const qs = new URLSearchParams({ limit: String(pagina.limit), offset: String(pagina.offset) })
+  return request(`/unidades/${unidadId}/historial?${qs.toString()}`, { signal })
 }

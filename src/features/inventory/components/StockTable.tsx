@@ -3,7 +3,7 @@ import { useC } from "../../../theme"
 import { Badge } from "../../../components/ui/Badge"
 import { Ico } from "../../../components/ui/icons"
 import { AltaGamaBadge } from "./AltaGamaBadge"
-import { rangosDeLockers } from "../services/stockVista"
+import { rangosDeLockers, sinUnidadesEnUso } from "../services/stockVista"
 import { alternarOrden, ordenarStock, type ColumnaStock, type Sentido } from "../services/ordenar"
 import type { Category, Equipment, Unidad } from "../types"
 import { UnidadesRow, type AccionEstado } from "./UnidadesRow"
@@ -26,6 +26,7 @@ export function StockTable({
   onAgregarUnidad,
   onEditarEquipo,
   onCambiarActivo,
+  onHistorial,
 }: {
   items: Equipment[]
   categorias: Category[]
@@ -35,6 +36,8 @@ export function StockTable({
   onAgregarUnidad: (equipo: Equipment) => void
   onEditarEquipo: (equipo: Equipment) => void
   onCambiarActivo: (equipo: Equipment) => void
+  /** Historial de usuarios de una unidad (PRE-12, SPEC-04 §8.3). */
+  onHistorial?: (equipo: Equipment, unidad: Unidad) => void
 }) {
   const C = useC()
   const [orden, setOrden] = useState<{ columna: ColumnaStock; sentido: Sentido }>({
@@ -224,20 +227,27 @@ export function StockTable({
                     {e.altaGama ? <AltaGamaBadge /> : <span style={{ fontSize: 12.5, color: C.textMuted }}>Común</span>}
                   </td>
                   <td style={{ ...celda, minWidth: 120 }}>
-                    <div style={{ fontSize: 12.5 }}>
-                      <strong style={{ fontWeight: 700 }}>{e.available_count}</strong>
-                      <span style={{ color: C.textMuted }}> de {e.quantity}</span>
-                    </div>
-                    <div style={{ marginTop: 5, height: 5, borderRadius: 99, background: C.bg, overflow: "hidden", maxWidth: 110 }}>
-                      <div
-                        style={{
-                          width: `${e.quantity ? (100 * e.available_count) / e.quantity : 0}%`,
-                          height: "100%",
-                          borderRadius: 99,
-                          background: e.available_count === 0 ? C.occupied : C.available,
-                        }}
-                      />
-                    </div>
+                    {sinUnidadesEnUso(e) ? (
+                      // SPEC-04 §8.4: todas sus unidades están fuera de servicio (en lugar de "0 de 0").
+                      <span style={{ fontSize: 12.5, color: C.textMuted }}>Sin unidades en uso</span>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 12.5 }}>
+                          <strong style={{ fontWeight: 700 }}>{e.available_count}</strong>
+                          <span style={{ color: C.textMuted }}> de {e.quantity}</span>
+                        </div>
+                        <div style={{ marginTop: 5, height: 5, borderRadius: 99, background: C.bg, overflow: "hidden", maxWidth: 110 }}>
+                          <div
+                            style={{
+                              width: `${e.quantity ? (100 * e.available_count) / e.quantity : 0}%`,
+                              height: "100%",
+                              borderRadius: 99,
+                              background: e.available_count === 0 ? C.occupied : C.available,
+                            }}
+                          />
+                        </div>
+                      </>
+                    )}
                     {e.maintenance && (
                       <div style={{ marginTop: 4, color: C.maintenance, fontSize: 11 }}>Con unidades en mantenimiento</div>
                     )}
@@ -297,6 +307,7 @@ export function StockTable({
                         onEstado={(u, accion) => onEstado(e, u, accion)}
                         onEditar={(u) => onEditarUnidad(e, u)}
                         onAgregar={() => onAgregarUnidad(e)}
+                        onHistorial={onHistorial && ((u) => onHistorial(e, u))}
                       />
                     </td>
                   </tr>
