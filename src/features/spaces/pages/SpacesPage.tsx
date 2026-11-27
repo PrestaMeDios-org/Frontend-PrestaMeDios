@@ -29,6 +29,7 @@ import { agruparCorridas } from "../services/seleccion"
 import { Alert, Card, SelectField, TextField } from "../../../components/ui/Form"
 import { Button } from "../../../components/ui/Button"
 import { usePedirTexto } from "../../../components/ui/Dialogo"
+import { ICONOS_ESPACIOS, IconoEspacio } from "../components/IconosEspacios"
 
 /** Franjas de una hora dentro del horario operativo vigente (GLO-02, desde config). */
 const franjas = (apertura: string, cierre: string): string[] => {
@@ -396,48 +397,55 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
   return (
     <div style={{ padding: "24px 28px", flex: 1, overflowY: "auto" }}>
       {puedeCrearEspacio && (
-        <Card title="Cargar nuevo espacio">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
-            <TextField
-              label="Nombre"
-              value={nombreNuevoEspacio}
-              onChange={setNombreNuevoEspacio}
-              placeholder="Ej.: Sala de edición"
-              disabled={creandoEspacio}
-            />
-            <TextField
-              label="Tipo (opcional)"
-              value={tipoNuevoEspacio}
-              onChange={setTipoNuevoEspacio}
-              placeholder="Ej.: Edición"
-              disabled={creandoEspacio}
-            />
-            {esSuperAdmin ? (
-              <SelectField
-                label="Sede"
-                value={sedeNuevoEspacio}
-                onChange={setSedeNuevoEspacio}
-                options={SEDES.map((sede) => ({ value: sede, label: sede }))}
-                disabled={creandoEspacio}
-              />
-            ) : (
-              <div style={{ alignSelf: "end", padding: "9px 0", fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.textMuted }}>
-                Sede: {usuario.sede ?? "No asignada"}
+        // Una sola fila (campos, sede y botón) para que el alta ocupe menos alto; separada de "Sede".
+        <div style={{ marginBottom: 22 }}>
+          <Card title="Cargar nuevo espacio">
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+              <div style={{ flex: "2 1 220px" }}>
+                <TextField
+                  label="Nombre"
+                  value={nombreNuevoEspacio}
+                  onChange={setNombreNuevoEspacio}
+                  placeholder="Ej.: Sala de edición"
+                  disabled={creandoEspacio}
+                />
               </div>
-            )}
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Button
-              onClick={crearEspacio}
-              disabled={creandoEspacio || (usuario.rol === "ADMIN_LOCAL" && !usuario.sede)}
-            >
-              {creandoEspacio ? "Creando..." : "Crear espacio"}
-            </Button>
-          </div>
-        </Card>
+              <div style={{ flex: "1 1 160px" }}>
+                <TextField
+                  label="Tipo (opcional)"
+                  value={tipoNuevoEspacio}
+                  onChange={setTipoNuevoEspacio}
+                  placeholder="Ej.: Edición"
+                  disabled={creandoEspacio}
+                />
+              </div>
+              {esSuperAdmin ? (
+                <div style={{ flex: "1 1 150px" }}>
+                  <SelectField
+                    label="Sede"
+                    value={sedeNuevoEspacio}
+                    onChange={setSedeNuevoEspacio}
+                    options={SEDES.map((sede) => ({ value: sede, label: sede }))}
+                    disabled={creandoEspacio}
+                  />
+                </div>
+              ) : (
+                <div style={{ padding: "11px 4px", fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.textMuted, whiteSpace: "nowrap" }}>
+                  Sede: {usuario.sede ?? "No asignada"}
+                </div>
+              )}
+              <Button
+                onClick={crearEspacio}
+                disabled={creandoEspacio || (usuario.rol === "ADMIN_LOCAL" && !usuario.sede)}
+              >
+                {creandoEspacio ? "Creando..." : "Crear espacio"}
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
       {mensajeExito && (
-        <div style={{ marginTop: 14 }}>
+        <div style={{ marginBottom: 18 }}>
           <Alert tipo="ok">{mensajeExito}</Alert>
         </div>
       )}
@@ -449,9 +457,15 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               fontWeight: 700,
               color: C.text,
               alignSelf: "center",
+              display: "inline-flex",
             }}
           >
-            Sede
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{ display: "inline-flex", color: C.crimson }}>
+                <IconoEspacio d={ICONOS_ESPACIOS.sede} size={15} />
+              </span>
+              Sede
+            </span>
           </span>
           {sedes.length === 0 && <span style={{ color: C.textFaint }}>Sin sedes disponibles.</span>}
           {sedes.map((sedeId) => (
@@ -484,9 +498,15 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
               fontWeight: 700,
               color: C.text,
               alignSelf: "center",
+              display: "inline-flex",
             }}
           >
-            Espacio
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{ display: "inline-flex", color: C.crimson }}>
+                <IconoEspacio d={ICONOS_ESPACIOS.espacio} size={15} />
+              </span>
+              Espacio
+            </span>
           </span>
           {espaciosPorSede.length === 0 && <span style={{ color: C.textFaint }}>Sin espacios para esta sede.</span>}
           {espaciosPorSede.map((e) => (
@@ -541,10 +561,17 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
         >
           {/* SPEC-10 V-12: encabezado con el día en palabras, turnos como tarjetas y leyenda */}
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 17, fontWeight: 800, color: C.text }}>
+            {/* SPEC-10: íconos del día y del horario */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "'Outfit',sans-serif", fontSize: 17, fontWeight: 800, color: C.text }}>
+              <span style={{ display: "inline-flex", color: C.crimson }}>
+                <IconoEspacio d={ICONOS_ESPACIOS.calendario} size={17} />
+              </span>
               {fecha ? mayusculaInicial(formatoDiaLargo.format(new Date(`${fecha}T12:00:00-03:00`))) : "Elegí un día"}
             </div>
-            <div style={{ marginTop: 3, fontFamily: "'Inter',sans-serif", fontSize: 12.5, color: C.textMuted }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, fontFamily: "'Inter',sans-serif", fontSize: 12.5, color: C.textMuted }}>
+              <span style={{ display: "inline-flex", color: C.textFaint }}>
+                <IconoEspacio d={ICONOS_ESPACIOS.reloj} size={13} />
+              </span>
               {fecha
                 ? `Horario del laboratorio: ${horario.apertura} a ${horario.cierre}${esAdmin ? "" : " · Podés elegir varios turnos seguidos"}`
                 : "Tocá un día del calendario para ver sus turnos."}
@@ -620,7 +647,10 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                       transition: "background 0.12s, border-color 0.12s",
                     }}
                   >
-                    <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, fontWeight: 700 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "'Outfit',sans-serif", fontSize: 15, fontWeight: 700 }}>
+                      <span style={{ display: "inline-flex", opacity: 0.55 }}>
+                        <IconoEspacio d={ICONOS_ESPACIOS.reloj} size={13} />
+                      </span>
                       {slot} – {addHour(slot)}
                     </span>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "'Inter',sans-serif", fontSize: 11.5 }}>
@@ -635,22 +665,25 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                       const res = esAdmin && !seleccionado ? reservaDelTurno(delDia, slot) : undefined
                       if (!res) return null
                       const { materia } = separarMotivo(res.motivo)
+                      // Nombre y apellido del solicitante en una línea; la materia, debajo.
+                      const quien =
+                        [res.solicitanteNombre, res.solicitanteApellido].filter(Boolean).join(" ") ||
+                        `Usuario #${res.idUsuario}`
+                      const linea = {
+                        maxWidth: "100%",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        fontFamily: "'Inter',sans-serif",
+                        fontSize: 11.5,
+                      } as const
                       return (
                         <span
-                          title={res.motivo ?? undefined}
-                          style={{
-                            maxWidth: "100%",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            fontFamily: "'Inter',sans-serif",
-                            fontSize: 11.5,
-                            fontWeight: 600,
-                            color: C.text,
-                          }}
+                          title={[quien, res.motivo].filter(Boolean).join(" · ")}
+                          style={{ display: "flex", flexDirection: "column", gap: 1, maxWidth: "100%" }}
                         >
-                          {res.solicitanteApellido ?? `Usuario #${res.idUsuario}`}
-                          {materia ? ` · ${materia}` : ""}
+                          <span style={{ ...linea, fontWeight: 600, color: C.text }}>{quien}</span>
+                          {materia && <span style={{ ...linea, color: C.textMuted }}>{materia}</span>}
                         </span>
                       )
                     })()}
@@ -675,10 +708,18 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
           )}
           {!esAdmin && fecha && !isLoading && horariosSeleccionados.length > 0 && (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
-              <span style={{ color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
+                <span style={{ display: "inline-flex", color: C.available }}>
+                  <IconoEspacio d={ICONOS_ESPACIOS.elegidos} size={14} />
+                </span>
                 {horariosSeleccionados.length} horario(s) seleccionado(s)
               </span>
-              <Button onClick={() => setMostrarConfirmacion(true)}>Revisar solicitud</Button>
+              <Button onClick={() => setMostrarConfirmacion(true)}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  Revisar solicitud
+                  <IconoEspacio d={ICONOS_ESPACIOS.flecha} size={14} />
+                </span>
+              </Button>
             </div>
           )}
         </div>
@@ -873,13 +914,27 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
             <p style={{ margin: "0 0 16px", color: C.textMuted, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
               Revisá el espacio, la fecha y los horarios. Los horarios seguidos se piden como una sola reserva.
             </p>
-            <div style={{ padding: 14, borderRadius: 10, background: C.crimsonLight, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13 }}>
-              <strong>{espacioActual.nombre}</strong>
-              <div style={{ marginTop: 4 }}>{formatearFecha(fecha)}</div>
+            {/* SPEC-10: íconos de espacio, fecha y horarios */}
+            <div style={{ padding: 14, borderRadius: 10, background: C.crimsonLight, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 13, display: "grid", gap: 6 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ display: "inline-flex", color: C.crimson }}>
+                  <IconoEspacio d={ICONOS_ESPACIOS.espacio} size={15} />
+                </span>
+                <strong>{espacioActual.nombre}</strong>
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ display: "inline-flex", color: C.crimson }}>
+                  <IconoEspacio d={ICONOS_ESPACIOS.calendario} size={15} />
+                </span>
+                {formatearFecha(fecha)}
+              </span>
             </div>
-            <ul style={{ margin: "14px 0 16px", paddingLeft: 22, color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 14 }}>
+            <ul style={{ listStyle: "none", margin: "12px 0 16px", padding: "0 0 0 14px", color: C.text, fontFamily: "'Inter',sans-serif", fontSize: 14, display: "grid", gap: 4 }}>
               {agruparCorridas(horariosSeleccionados).map((corrida) => (
-                <li key={corrida.inicio} style={{ padding: "3px 0" }}>
+                <li key={corrida.inicio} style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
+                  <span style={{ display: "inline-flex", color: C.textFaint }}>
+                    <IconoEspacio d={ICONOS_ESPACIOS.reloj} size={14} />
+                  </span>
                   {corrida.inicio}–{corrida.fin}
                 </li>
               ))}
@@ -887,7 +942,12 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
             {/* SPEC-10 V-13: materia y descripción (se guardan en `motivo`, RES-02) */}
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
               <label style={{ display: "flex", flexDirection: "column", gap: 5, fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 600, color: C.text }}>
-                Materia
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ display: "inline-flex", color: C.textFaint }}>
+                    <IconoEspacio d={ICONOS_ESPACIOS.materia} size={13} />
+                  </span>
+                  Materia
+                </span>
                 <input
                   value={materia}
                   onChange={(e) => setMateria(e.target.value)}
@@ -897,7 +957,12 @@ export function SpacesPage({ role = "student" }: { role?: Role }) {
                 />
               </label>
               <label style={{ display: "flex", flexDirection: "column", gap: 5, fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 600, color: C.text }}>
-                Descripción
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ display: "inline-flex", color: C.textFaint }}>
+                    <IconoEspacio d={ICONOS_ESPACIOS.descripcion} size={13} />
+                  </span>
+                  Descripción
+                </span>
                 <textarea
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
