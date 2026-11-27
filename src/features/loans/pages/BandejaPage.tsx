@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react"
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react"
 import { Alert } from "../../../components/ui/Form"
 import { mensajeDeError } from "../../../lib/api"
 import { useC } from "../../../theme"
 import { useSede } from "../../auth/AuthContext"
 import { listarEquipamiento } from "../../inventory/services/inventoryApi"
 import { AprobarOrdenModal } from "../components/AprobarOrdenModal"
+import { AvalModal } from "../components/AvalModal"
+import { ICONO, Icono } from "../components/IconosLinea"
 import { MotivoModal } from "../components/MotivoModal"
 import { etiquetasDelStock, mensajeDeErrorValidacion } from "../services/bandeja"
 import { ESTADO_ORDEN_LABEL } from "../services/formato"
@@ -21,7 +23,7 @@ import {
   type ResumenBandeja,
   type TipoSolicitud,
 } from "../services/bandejaVista"
-import { cancelarOrden, descargarAval, listarBandeja, rechazarOrden } from "../services/loansApi"
+import { cancelarOrden, listarBandeja, rechazarOrden } from "../services/loansApi"
 import { ESTADOS_ORDEN, type EstadoOrden, type Orden } from "../types"
 
 type Accion = { tipo: "aprobar" | "rechazar" | "cancelar"; orden: Orden }
@@ -45,6 +47,8 @@ export function BandejaPage() {
   const [tipo, setTipo] = useState<TipoSolicitud>("estudiante")
   const [resumen, setResumen] = useState<ResumenBandeja | null>(null)
   const [versionResumen, setVersionResumen] = useState(0)
+  // SPEC-10: el aval se ve primero en un diálogo; desde ahí se descarga.
+  const [avalDe, setAvalDe] = useState<Orden | null>(null)
 
   const cargar = useCallback(
     async (signal?: AbortSignal) => {
@@ -100,107 +104,148 @@ export function BandejaPage() {
   const conteo = useMemo(() => contarPorTipo(ordenes ?? [], fichas), [ordenes, fichas])
   const visibles = useMemo(() => (ordenes ?? []).filter((o) => tipoDe(o, fichas) === tipo), [ordenes, fichas, tipo])
 
-  const verAval = async (orden: Orden) => {
-    // La ventana se abre antes de esperar la descarga, para que el navegador no la bloquee.
-    const ventana = window.open("", "_blank")
-    try {
-      const url = URL.createObjectURL(await descargarAval(orden.id))
-      if (ventana) ventana.location.href = url
-      else window.location.assign(url)
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
-    } catch (e) {
-      ventana?.close()
-      setError(mensajeDeError(e, "No se pudo abrir el aval."))
-    }
-  }
-
   const texto: CSSProperties = { fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.text }
   const tenue: CSSProperties = { ...texto, fontSize: 12, color: C.textMuted }
 
-  const tarjeta = (cifra: number | string, etiqueta: string, color: string, bg: string) => (
-    <div
+  // SPEC-10: resumen de la bandeja, diseño "acento" (elegido el 2026-11-26): tarjetas con una
+  // barra de color a la izquierda, el nombre en mayúsculas chicas y la cifra grande en su color.
+  const metricas: { cifra: number | string; etiqueta: string; detalle: string; color: string; bg: string; icono: ReactNode }[] = [
+    {
+      cifra: resumen ? cifra(resumen.pendientes, resumen.pendientesAlLimite) : "…",
+      etiqueta: "Pendientes",
+      detalle: "Esperan tu revisión",
+      color: C.pending,
+      bg: C.pendingBg,
+      icono: ICONO.reloj,
+    },
+    {
+      cifra: resumen ? cifra(resumen.aprobadasHoy, resumen.aprobadasAlLimite) : "…",
+      etiqueta: "Aprobadas hoy",
+      detalle: "En el día de hoy",
+      color: C.available,
+      bg: C.availableBg,
+      icono: ICONO.aprobar,
+    },
+    {
+      cifra: resumen ? cifra(resumen.conObservacion, resumen.pendientesAlLimite) : "…",
+      etiqueta: "Con obs. del docente",
+      detalle: "Entre las pendientes",
+      color: C.mine,
+      bg: C.mineBg,
+      icono: ICONO.motivo,
+    },
+  ]
+  const resumenVista = () => {
+    return (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+          {metricas.map((m) => (
+            <div
+              key={m.etiqueta}
+              style={{
+                display: "grid",
+                gap: 4,
+                padding: "12px 16px 12px 18px",
+                background: C.card,
+                border: `1px solid ${C.border}`,
+                borderLeft: `4px solid ${m.color}`,
+                borderRadius: 12,
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontFamily: "'Inter',sans-serif",
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  color: C.textMuted,
+                }}
+              >
+                <span style={{ display: "inline-flex", color: m.color }}>
+                  <Icono d={m.icono} size={13} />
+                </span>
+                {m.etiqueta}
+              </span>
+              <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 26, fontWeight: 800, color: m.color, lineHeight: 1.1 }}>{m.cifra}</span>
+                <span style={{ ...tenue, fontSize: 11 }}>{m.detalle}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )
+  }
+
+  // SPEC-10: filtro por tipo de solicitud como sub-pestañas (elegido el 2026-11-26): más chicas que
+  // las de estado, con ícono, contador y una línea bordó debajo de la activa.
+  const TIPOS: TipoSolicitud[] = ["estudiante", "docente", "especial"]
+  const ICONO_TIPO: Record<TipoSolicitud, ReactNode> = {
+    estudiante: ICONO.persona,
+    docente: ICONO.asignatura,
+    especial: ICONO.documento,
+  }
+  const contador = (n: number, activo: boolean, fuerte = true) => (
+    <span
       style={{
-        flex: "1 1 220px",
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-        padding: "16px 18px",
-        background: C.card,
-        border: `1px solid ${C.border}`,
-        borderRadius: 16,
+        background: activo && fuerte ? C.crimson : activo ? C.crimsonLight : C.bg,
+        color: activo && fuerte ? "white" : activo ? C.crimson : C.textMuted,
+        borderRadius: 100,
+        padding: "0 6px",
+        fontSize: 10,
+        fontWeight: 700,
+        lineHeight: "16px",
       }}
     >
-      <span
-        style={{
-          minWidth: 46,
-          height: 46,
-          padding: "0 10px",
-          borderRadius: 12,
-          background: bg,
-          color,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "'Outfit',sans-serif",
-          fontSize: 22,
-          fontWeight: 800,
-        }}
-      >
-        {cifra}
-      </span>
-      <span style={{ fontFamily: "'Outfit',sans-serif", fontSize: 14, fontWeight: 600, color: C.textMuted }}>{etiqueta}</span>
-    </div>
+      {n}
+    </span>
   )
-
-  const pastilla = (t: TipoSolicitud) => {
-    const activa = tipo === t
+  const filtroTipo = () => {
     return (
-      <button
-        key={t}
-        type="button"
-        aria-pressed={activa}
-        onClick={() => setTipo(t)}
-        // SPEC-10 V-14: mismo chip que los filtros de categoría del catálogo.
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 5,
-          padding: "6px 13px",
-          borderRadius: 100,
-          border: `1.5px solid ${activa ? C.crimson : C.border}`,
-          background: activa ? C.crimson : C.card,
-          color: activa ? "white" : C.textMuted,
-          fontFamily: "'Outfit',sans-serif",
-          fontSize: 12.5,
-          fontWeight: 500,
-          cursor: "pointer",
-        }}
-      >
-        {TIPO_LABEL[t]}
-        <span
-          style={{
-            background: activa ? "rgba(255,255,255,0.22)" : C.bg,
-            borderRadius: 100,
-            padding: "0 5px",
-            fontSize: 10.5,
-            fontWeight: 700,
-          }}
-        >
-          {conteo[t]}
-        </span>
-      </button>
-    )
+        <div style={{ display: "flex", gap: 18, padding: "0 18px" }}>
+          {TIPOS.map((t) => {
+            const activo = tipo === t
+            return (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={activo}
+                onClick={() => setTipo(t)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "10px 0 9px",
+                  borderStyle: "none none solid",
+                  borderWidth: "0 0 2px",
+                  borderColor: activo ? C.crimson : "transparent",
+                  background: "transparent",
+                  color: activo ? C.text : C.textMuted,
+                  fontFamily: "'Outfit',sans-serif",
+                  fontSize: 12.5,
+                  fontWeight: activo ? 700 : 500,
+                  cursor: "pointer",
+                }}
+              >
+                <span style={{ display: "inline-flex", color: activo ? C.crimson : C.textFaint }}>
+                  <Icono d={ICONO_TIPO[t]} size={13} />
+                </span>
+                {TIPO_LABEL[t]}
+                {contador(conteo[t], activo, false)}
+              </button>
+            )
+          })}
+        </div>
+      )
   }
 
   return (
     <div style={{ padding: "24px 28px", flex: 1, overflowY: "auto", display: "grid", gap: 16, alignContent: "start" }}>
       {/* SPEC-10 V-14: resumen, pestañas por estado y por tipo, y tabla */}
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-        {/* Con la lista al límite, la cifra es "al menos": se muestra "100+" (la API no da el total). */}
-        {tarjeta(resumen ? cifra(resumen.pendientes, resumen.pendientesAlLimite) : "…", "Total pendientes", C.pending, C.pendingBg)}
-        {tarjeta(resumen ? cifra(resumen.aprobadasHoy, resumen.aprobadasAlLimite) : "…", "Aprobadas hoy", C.available, C.availableBg)}
-        {tarjeta(resumen ? cifra(resumen.conObservacion, resumen.pendientesAlLimite) : "…", "Con obs. del docente", C.mine, C.mineBg)}
-      </div>
+      {/* Con la lista al límite, la cifra es "al menos": se muestra "100+" (la API no da el total). */}
+      {resumenVista()}
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, overflow: "hidden" }}>
         <div role="tablist" style={{ display: "flex", gap: 4, padding: "6px 14px 0", borderBottom: `1px solid ${C.border}` }}>
@@ -230,9 +275,7 @@ export function BandejaPage() {
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
-          {(["estudiante", "docente", "especial"] as TipoSolicitud[]).map(pastilla)}
-        </div>
+        <div style={{ borderBottom: `1px solid ${C.border}` }}>{filtroTipo()}</div>
 
         {(aviso || error || ordenes === null || visibles.length === 0) && (
           <div style={{ padding: "14px 16px", display: "grid", gap: 8 }}>
@@ -256,7 +299,7 @@ export function BandejaPage() {
               onAprobar: (orden) => setAccion({ tipo: "aprobar", orden }),
               onRechazar: (orden) => setAccion({ tipo: "rechazar", orden }),
               onCancelar: (orden) => setAccion({ tipo: "cancelar", orden }),
-              onVerAval: (orden) => void verAval(orden),
+              onVerAval: (orden) => setAvalDe(orden),
             }}
           />
         )}
@@ -310,6 +353,7 @@ export function BandejaPage() {
           }}
         />
       )}
+      {avalDe && <AvalModal orden={avalDe} onClose={() => setAvalDe(null)} />}
     </div>
   )
 }

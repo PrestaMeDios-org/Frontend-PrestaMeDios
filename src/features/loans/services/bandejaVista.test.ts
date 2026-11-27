@@ -67,6 +67,11 @@ describe("bandeja en tabla (SPEC-10 V-14)", () => {
     expect(cifra(r.aprobadasHoy, r.aprobadasAlLimite)).toBe("0")
   })
 
+  it("no muestra \"0+\" aunque la lista esté al límite (segunda revisión del PR #28)", () => {
+    expect(cifra(0, true)).toBe("0")
+    expect(cifra(100, true)).toBe("100+")
+  })
+
   it("formatea la fecha corta como en el prototipo", () => {
     expect(fechaCorta(new Date("2026-11-18T10:00:00-03:00"))).toBe("18 nov 2026")
   })
