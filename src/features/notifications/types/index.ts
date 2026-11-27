@@ -73,3 +73,45 @@ export interface Comunicado {
   venceEn: string | null
   venceLabel: string | null
 }
+
+// ─── Notificaciones personales (NOV-04, Fase B) ──────────────────────────────
+export type Severidad = "NORMAL" | "CRITICA"
+
+export interface ReferenciaNotificacionDTO {
+  modulo: "loans" | "spaces" | "users"
+  id: number
+}
+
+export interface NotificacionDTO {
+  id: number
+  tipo: string
+  severidad: Severidad
+  titulo: string
+  mensaje: string
+  referencia: ReferenciaNotificacionDTO | null
+  creada_en: string
+  leida_en: string | null
+}
+
+export interface NotificacionesPageDTO {
+  items: NotificacionDTO[]
+  total: number
+}
+
+export interface ResumenNotificacionesDTO {
+  no_leidas: number
+  criticas_no_leidas: number
+}
+
+export interface Notificacion {
+  id: number
+  tipo: string
+  critica: boolean
+  titulo: string
+  mensaje: string
+  /** Disponible para enlazar al recurso cuando existan esas pantallas (plan §4.3). */
+  referencia: ReferenciaNotificacionDTO | null
+  creadaEn: string
+  creadaLabel: string
+  leida: boolean
+}

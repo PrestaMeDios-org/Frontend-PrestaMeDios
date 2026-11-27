@@ -6,6 +6,9 @@ import type {
   ComunicadoUpdateDTO,
   EstadoComunicado,
   FiltrosComunicados,
+  NotificacionDTO,
+  NotificacionesPageDTO,
+  ResumenNotificacionesDTO,
 } from "../types"
 
 const BASE = "/api/v1/notifications"
@@ -51,3 +54,25 @@ export async function obtenerHorario(signal?: AbortSignal): Promise<{ apertura: 
   const [apertura, cierre] = await Promise.all([leer("horario.apertura"), leer("horario.cierre")])
   return { apertura: String(apertura.valor), cierre: String(cierre.valor) }
 }
+
+// ─── Notificaciones personales (NOV-04) ───────────────────────────────────────
+export const listarNotificaciones = (
+  filtros: { solo_no_leidas?: boolean; limit?: number; offset?: number } = {},
+  signal?: AbortSignal,
+) => {
+  const p = new URLSearchParams()
+  if (filtros.solo_no_leidas) p.set("solo_no_leidas", "true")
+  if (filtros.limit !== undefined) p.set("limit", String(filtros.limit))
+  if (filtros.offset) p.set("offset", String(filtros.offset))
+  const q = p.toString()
+  return apiRequest<NotificacionesPageDTO>(`${BASE}/notificaciones${q ? `?${q}` : ""}`, { signal })
+}
+
+export const obtenerResumenNotificaciones = (signal?: AbortSignal) =>
+  apiRequest<ResumenNotificacionesDTO>(`${BASE}/notificaciones/resumen`, { signal })
+
+export const marcarNotificacionLeida = (id: number) =>
+  apiRequest<NotificacionDTO>(`${BASE}/notificaciones/${id}/leida`, { method: "PATCH" })
+
+export const leerTodasLasNotificaciones = () =>
+  apiRequest<{ marcadas: number }>(`${BASE}/notificaciones/leer-todas`, { method: "POST" })
