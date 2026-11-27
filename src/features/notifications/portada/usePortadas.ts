@@ -1,4 +1,4 @@
-// MOMENTÁNEO (SPEC-10 M-02): portadas elegidas de los comunicados visibles, y la URL local
+// Portada (SPEC-06 §15): portadas elegidas de los comunicados visibles, y la URL local
 // de una foto (se baja con el token como Blob, igual que `useArchivoUrl`).
 import { useEffect, useState } from "react"
 import { descargarPortada, listarPortadas, type PortadaDTO } from "./portadaApi"

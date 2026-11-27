@@ -23,11 +23,10 @@ import { SelectorHora } from "../../../components/ui/SelectorHora"
 import { isoDe } from "../../../components/ui/calendario/mes"
 import { hoyLab } from "../../../lib/fechas"
 import type { Comunicado } from "../types"
-import { SelectorPortada } from "../portada/SelectorPortada" // MOMENTÁNEO (SPEC-10 M-02)
-import { aplicarPortada, eleccionDesde, type EleccionPortada, type PortadaDTO } from "../portada/portadaApi" // MOMENTÁNEO (SPEC-10 M-02)
-import { temaDe } from "../services/tema" // MOMENTÁNEO (SPEC-10 M-02)
-import { localAIso } from "../services/fechas" // MOMENTÁNEO (SPEC-10 M-02)
-
+import { SelectorPortada } from "../portada/SelectorPortada"
+import { aplicarPortada, eleccionDesde, type EleccionPortada, type PortadaDTO } from "../portada/portadaApi"
+import { temaDe } from "../services/tema"
+import { localAIso } from "../services/fechas"
 // Alta y edición de un comunicado (NOV-02). El alcance sólo lo elige el SUPERADMIN y sólo
 // en el alta (RN-N2, RN-N5); para el ADMIN_LOCAL la sede la fija el backend.
 export function ComunicadoForm({
@@ -41,7 +40,7 @@ export function ComunicadoForm({
   rol: RolUsuario
   sedePropia: string | null
   comunicado?: Comunicado
-  /** MOMENTÁNEO (SPEC-10 M-02): portada guardada, al editar. */
+  /** Portada guardada, al editar. */
   portadaActual?: PortadaDTO
   onCancelar: () => void
   onGuardado: (mensaje: string) => void
@@ -52,7 +51,7 @@ export function ComunicadoForm({
   const [errores, setErrores] = useState<ErroresComunicado>({})
   const [general, setGeneral] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
-  const [portada, setPortada] = useState<EleccionPortada>(() => eleccionDesde(portadaActual)) // MOMENTÁNEO (SPEC-10 M-02)
+  const [portada, setPortada] = useState<EleccionPortada>(() => eleccionDesde(portadaActual))
   const areaStyle = { ...useInputStyle(Boolean(errores.contenido)), minHeight: 140, resize: "vertical" as const }
 
   const poner = <K extends keyof FormValores>(k: K, v: FormValores[K]) => setForm((f) => ({ ...f, [k]: v }))
@@ -67,7 +66,7 @@ export function ComunicadoForm({
       if (comunicado) {
         const cambios = construirEdicion(form, comunicado)
         if (Object.keys(cambios).length) await editarComunicado(comunicado.id, cambios)
-        // MOMENTÁNEO (SPEC-10 M-02): si falla la portada, los cambios del comunicado ya se guardaron.
+        // Portada (SPEC-06 §15): si falla la portada, los cambios del comunicado ya se guardaron.
         try {
           await aplicarPortada(comunicado.id, portada, eleccionDesde(portadaActual))
         } catch (e) {
@@ -77,7 +76,7 @@ export function ComunicadoForm({
         onGuardado("Comunicado actualizado.")
       } else {
         const creado = await crearComunicado(construirAlta(form, rol))
-        // MOMENTÁNEO (SPEC-10 M-02): si falla la portada, el comunicado ya quedó publicado.
+        // Portada (SPEC-06 §15): si falla la portada, el comunicado ya quedó publicado.
         try {
           await aplicarPortada(creado.id, portada, { tipo: "auto" })
         } catch (e) {
@@ -168,7 +167,7 @@ export function ComunicadoForm({
           )}
         </Field>
       </div>
-      {/* MOMENTÁNEO (SPEC-10 M-02): elegir el color o subir una foto de portada */}
+      {/* Elegir el color o subir una foto de portada */}
       <Field label="Portada" hint="Automática: el color sale del alcance y del vencimiento.">
         <SelectorPortada
           valor={portada}

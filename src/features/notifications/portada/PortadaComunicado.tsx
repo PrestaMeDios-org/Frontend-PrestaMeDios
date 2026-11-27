@@ -1,4 +1,4 @@
-// MOMENTÁNEO (SPEC-10 M-02): la "foto" de la tarjeta. Foto subida > tema elegido >
+// Portada (SPEC-06 §15): la "foto" de la tarjeta. Foto subida > tema elegido >
 // color automático (V-10). Sin esta carpeta, ComunicadosList vuelve a usar el banner automático.
 import { BannerComunicado } from "../components/BannerComunicado"
 import type { TemaComunicado } from "../services/tema"

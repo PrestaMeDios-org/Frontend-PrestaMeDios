@@ -12,8 +12,7 @@ import { useComunicados } from "../hooks/useComunicados"
 import { cambiarEstadoComunicado } from "../services/notificationsApi"
 import type { Comunicado } from "../types"
 import { useConfirmar } from "../../../components/ui/Dialogo"
-import { usePortadas } from "../portada/usePortadas" // MOMENTÁNEO (SPEC-10 M-02)
-
+import { usePortadas } from "../portada/usePortadas"
 type Pestana = "comunicados" | "portal"
 
 // Pantalla "Novedades" (NOV-01, NOV-02): comunicados de la sede más los globales, y el
@@ -36,9 +35,8 @@ export function NewsPage() {
     sede,
     incluirArchivados: admin && verArchivados,
   })
-  const [versionPortadas, setVersionPortadas] = useState(0) // MOMENTÁNEO (SPEC-10 M-02)
-  const portadas = usePortadas(items.map((c) => c.id), versionPortadas) // MOMENTÁNEO (SPEC-10 M-02)
-
+  const [versionPortadas, setVersionPortadas] = useState(0)
+  const portadas = usePortadas(items.map((c) => c.id), versionPortadas)
   const confirmar = useConfirmar() // SPEC-10 V-11: diálogo propio en lugar de window.confirm
   const alternarEstado = async (c: Comunicado) => {
     const archivar = c.estado === "PUBLICADO"
@@ -128,7 +126,7 @@ export function NewsPage() {
                 setFormulario(null)
                 setAviso(mensaje)
                 recargar()
-                setVersionPortadas((v) => v + 1) // MOMENTÁNEO (SPEC-10 M-02)
+                setVersionPortadas((v) => v + 1)
               }}
             />
           )}
@@ -163,7 +161,7 @@ export function NewsPage() {
                 setFormulario({ comunicado: c })
               }}
               onCambiarEstado={alternarEstado}
-              portadas={portadas} // MOMENTÁNEO (SPEC-10 M-02)
+              portadas={portadas}
             />
           )}
 
