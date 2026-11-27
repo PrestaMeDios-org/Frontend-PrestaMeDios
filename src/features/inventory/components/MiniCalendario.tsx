@@ -44,6 +44,7 @@ export function MiniCalendario({ equipamientoId, sede, hoy = hoyLab() }: Props) 
       <GrillaMes mes={mes} onMes={setMes} infoDia={infoDia} min={aIso(min)} max={aIso(max)} />
       {cargando && <p style={{ margin: 0, fontSize: 12, color: C.textMuted }}>Cargando…</p>}
       {error && <p style={{ margin: 0, fontSize: 12, color: C.occupied }}>{error}</p>}
+      {/* SPEC-04 §8.2, RN-I15: el calendario es orientativo; la garantía es la validación del pedido. */}
       <p style={{ margin: 0, fontSize: 11, color: C.textMuted }}>Orientativo: la confirmación llega al enviar el pedido.</p>
     </div>
   )
