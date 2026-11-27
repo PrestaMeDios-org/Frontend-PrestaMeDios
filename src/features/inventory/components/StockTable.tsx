@@ -3,6 +3,7 @@ import { useC } from "../../../theme"
 import { Badge } from "../../../components/ui/Badge"
 import { Ico } from "../../../components/ui/icons"
 import { AltaGamaBadge } from "./AltaGamaBadge"
+import { ICONOS_STOCK, IconoStock } from "./IconosStock"
 import { rangosDeLockers, sinUnidadesEnUso } from "../services/stockVista"
 import { alternarOrden, ordenarStock, type ColumnaStock, type Sentido } from "../services/ordenar"
 import type { Category, Equipment, Unidad } from "../types"
@@ -103,13 +104,24 @@ export function StockTable({
                       color: activa ? C.crimson : C.textMuted,
                     }}
                   >
-                    {col.label} <span aria-hidden>{flecha}</span>
+                    {/* SPEC-10: ícono de la columna */}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ display: "inline-flex", color: activa ? C.crimson : C.textFaint }}>
+                        <IconoStock d={ICONOS_STOCK[col.id]} size={13} />
+                      </span>
+                      {col.label} <span aria-hidden>{flecha}</span>
+                    </span>
                   </button>
                 </th>
               )
             })}
             <th style={{ ...celda, textAlign: "right", color: C.textMuted, fontFamily: "'Outfit',sans-serif", fontSize: 12.5 }}>
-              Acciones
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span style={{ display: "inline-flex", color: C.textFaint }}>
+                  <IconoStock d={ICONOS_STOCK.acciones} size={13} />
+                </span>
+                Acciones
+              </span>
             </th>
           </tr>
         </thead>
