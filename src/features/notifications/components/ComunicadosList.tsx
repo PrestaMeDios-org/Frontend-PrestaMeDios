@@ -6,9 +6,8 @@ import type { RolUsuario } from "../../auth/types"
 import { puedeGestionar } from "../services/alcance"
 import type { Comunicado } from "../types"
 import { temaDe, PALETA_TEMA } from "../services/tema"
-import { PortadaComunicado } from "../portada/PortadaComunicado" // MOMENTÁNEO (SPEC-10 M-02)
-import type { PortadaDTO } from "../portada/portadaApi" // MOMENTÁNEO (SPEC-10 M-02)
-
+import { PortadaComunicado } from "../portada/PortadaComunicado"
+import type { PortadaDTO } from "../portada/portadaApi"
 // Lista de comunicados (NOV-02). El contenido se muestra como texto plano (D-N07):
 // nunca se interpreta HTML. SPEC-10 V-10: grilla de tarjetas con un banner cuyo color
 // sale del alcance y del vencimiento (services/tema.ts).
@@ -21,7 +20,7 @@ export function ComunicadosList({
   onCambiarEstado,
 }: {
   items: Comunicado[]
-  /** MOMENTÁNEO (SPEC-10 M-02) */
+  /** Portada de cada comunicado (SPEC-06 §15). */
   portadas?: Map<number, PortadaDTO>
   rol: RolUsuario
   ocupado: number | null
@@ -36,7 +35,7 @@ export function ComunicadosList({
           c={c}
           gestionable={puedeGestionar(rol, c)}
           ocupado={ocupado === c.id}
-          portada={portadas?.get(c.id)} // MOMENTÁNEO (SPEC-10 M-02)
+          portada={portadas?.get(c.id)}
           onEditar={() => onEditar(c)}
           onCambiarEstado={() => onCambiarEstado(c)}
         />
@@ -83,7 +82,7 @@ function Tarjeta({
         filter: archivado ? "grayscale(60%)" : undefined,
       }}
     >
-      {/* MOMENTÁNEO (SPEC-10 M-02): foto o tema elegidos; sin eso, el color automático */}
+      {/* Foto o tema elegidos; sin eso, el color automático */}
       <PortadaComunicado comunicadoId={c.id} portada={portada} temaAutomatico={tema} />
       <div style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 9, flex: 1 }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>

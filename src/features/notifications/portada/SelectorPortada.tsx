@@ -1,4 +1,4 @@
-// MOMENTÁNEO (SPEC-10 M-02): elección de la portada en el formulario del comunicado.
+// Portada (SPEC-06 §15): elección de la portada en el formulario del comunicado.
 import { useEffect, useRef, useState } from "react"
 import { useC } from "../../../theme"
 import { BannerComunicado } from "../components/BannerComunicado"

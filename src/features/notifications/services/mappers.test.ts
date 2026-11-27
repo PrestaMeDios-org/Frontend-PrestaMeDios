@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { toComunicado } from "./mappers"
+import { marcablesAlAbrir, toComunicado, toNotificacion } from "./mappers"
 import { fechaLegible, isoALocal, localAIso } from "./fechas"
-import type { ComunicadoDTO } from "../types"
+import type { ComunicadoDTO, NotificacionDTO } from "../types"
 
 const dto = (p: Partial<ComunicadoDTO> = {}): ComunicadoDTO => ({
   id: 1,
@@ -57,5 +57,37 @@ describe("fechas", () => {
 
   it("fechaLegible no depende de la zona del navegador", () => {
     expect(fechaLegible("2026-11-07T13:30:00Z")).toBe("07/11/2026 10:30")
+  })
+})
+
+describe("toNotificacion y marcablesAlAbrir (NOV-04)", () => {
+  const n = (p: Partial<NotificacionDTO> = {}): NotificacionDTO => ({
+    id: 1,
+    tipo: "ORDEN_APROBADA",
+    severidad: "NORMAL",
+    titulo: "Solicitud aprobada",
+    mensaje: "Tu solicitud N° 42 fue aprobada.",
+    referencia: { modulo: "loans", id: 42 },
+    creada_en: "2026-11-27T13:30:00Z",
+    leida_en: null,
+    ...p,
+  })
+
+  it("mapea severidad, lectura y fecha en hora del laboratorio", () => {
+    const v = toNotificacion(n({ severidad: "CRITICA", leida_en: "2026-11-27T14:00:00Z" }))
+    expect(v.critica).toBe(true)
+    expect(v.leida).toBe(true)
+    expect(v.creadaLabel).toBe("27/11/2026 10:30")
+    expect(v.referencia).toEqual({ modulo: "loans", id: 42 })
+  })
+
+  it("al abrir se marcan sólo las normales sin leer (RN-N9)", () => {
+    const items = [
+      n({ id: 1 }),
+      n({ id: 2, severidad: "CRITICA" }),
+      n({ id: 3, leida_en: "2026-11-27T14:00:00Z" }),
+      n({ id: 4 }),
+    ].map(toNotificacion)
+    expect(marcablesAlAbrir(items)).toEqual([1, 4])
   })
 })

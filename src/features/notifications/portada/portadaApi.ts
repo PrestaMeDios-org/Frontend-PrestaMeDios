@@ -1,4 +1,4 @@
-// MOMENTÁNEO (SPEC-10 M-02, §4.7): API de la portada elegible de los comunicados.
+// Portada de los comunicados (SPEC-06 §15; contrato en SPEC-10 §4.7): API de la portada elegible de los comunicados.
 // Toda la carpeta `portada/` se borra junto con las líneas marcadas en ComunicadoForm,
 // ComunicadosList y NewsPage (SPEC-10 §1.4).
 import { apiRequest } from "../../../lib/api"

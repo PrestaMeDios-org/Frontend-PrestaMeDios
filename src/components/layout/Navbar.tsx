@@ -2,51 +2,9 @@ import { useState, useRef, useEffect } from "react"
 import { useC } from "../../theme"
 import { Ico } from "../ui/icons"
 import { Avatar } from "../ui/Avatar"
+import { NotificationBell } from "../../features/notifications/components/NotificationBell"
 import type { CartType } from "../../types"
 import type { Sede } from "../../features/auth/types"
-
-const NOTIFICATIONS_DATA = [
-  {
-    id: "1",
-    type: "received",
-    title: "Solicitud recibida",
-    desc: "Tu pedido de Cámara Sony A7 III fue registrado correctamente.",
-    time: "Hoy 14:32",
-    read: false,
-  },
-  {
-    id: "2",
-    type: "approved",
-    title: "Solicitud aprobada",
-    desc: "Prof. Marcela Vega aprobó tu solicitud para Video II.",
-    time: "Hoy 09:15",
-    read: false,
-  },
-  {
-    id: "3",
-    type: "rejected",
-    title: "Solicitud rechazada",
-    desc: 'Motivo: "El equipo requiere certificación previa de uso."',
-    time: "Ayer 11:45",
-    read: true,
-  },
-  {
-    id: "4",
-    type: "due_soon",
-    title: "Pronto a vencer",
-    desc: "Tu préstamo de MacBook Pro vence en 2 días (22 ago).",
-    time: "Ayer 08:00",
-    read: true,
-  },
-  {
-    id: "5",
-    type: "return",
-    title: "Recordatorio de devolución",
-    desc: "Hoy es el último día para devolver Grabadora Zoom H6.",
-    time: "14 ago 07:30",
-    read: true,
-  },
-]
 
 export function Navbar({
   user,
@@ -78,28 +36,15 @@ export function Navbar({
 }) {
   const C = useC()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false)
-  const [notifs, setNotifs] = useState(NOTIFICATIONS_DATA)
   const menuRef = useRef<HTMLDivElement>(null)
-  const notifRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node))
         setUserMenuOpen(false)
-      if (notifRef.current && !notifRef.current.contains(e.target as Node))
-        setNotifOpen(false)
     }
     document.addEventListener("mousedown", h)
     return () => document.removeEventListener("mousedown", h)
   }, [])
-  const unread = notifs.filter((n) => !n.read).length
-  const notifColors: { [k: string]: { dot: string; bg: string } } = {
-    received: { dot: C.mine, bg: C.mineBg },
-    approved: { dot: C.available, bg: C.availableBg },
-    rejected: { dot: C.occupied, bg: C.occupiedBg },
-    due_soon: { dot: C.pending, bg: C.pendingBg },
-    return: { dot: C.crimson, bg: C.crimsonLight },
-  }
   return (
     <header
       style={{
@@ -323,171 +268,7 @@ export function Navbar({
         >
           {dark ? Ico.sun : Ico.moon}
         </button>
-        <div ref={notifRef} style={{ position: "relative" }}>
-          <button
-            onClick={() => {
-              setNotifOpen(!notifOpen)
-              if (!notifOpen)
-                setNotifs((prev) => prev.map((n) => ({ ...n, read: true })))
-            }}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 9,
-              border: `1px solid ${C.border}`,
-              background: notifOpen ? C.crimsonLight : C.bg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              position: "relative",
-              color: notifOpen ? C.crimson : C.textMuted,
-            }}
-            title="Notificaciones"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M8 1.5C5.5 1.5 3.5 3.5 3.5 6V9.5L2 11H14L12.5 9.5V6C12.5 3.5 10.5 1.5 8 1.5Z"
-                stroke="currentColor"
-                strokeWidth="1.4"
-              />
-              <path
-                d="M6.5 11C6.5 11.83 7.17 12.5 8 12.5S9.5 11.83 9.5 11"
-                stroke="currentColor"
-                strokeWidth="1.3"
-              />
-            </svg>
-            {unread > 0 && (
-              <span
-                style={{
-                  position: "absolute",
-                  top: 7,
-                  right: 8,
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: C.crimson,
-                  border: "2px solid " + C.bg,
-                }}
-              />
-            )}
-          </button>
-          {notifOpen && (
-            <div
-              style={{
-                position: "absolute",
-                top: 44,
-                right: 0,
-                width: 330,
-                background: C.card,
-                borderRadius: 16,
-                boxShadow: "0 12px 40px rgba(0,0,0,0.2)",
-                border: `1px solid ${C.border}`,
-                overflow: "hidden",
-                zIndex: 50,
-              }}
-            >
-              <div
-                style={{
-                  padding: "12px 16px 10px",
-                  borderBottom: `1px solid ${C.border}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "'Outfit',sans-serif",
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: C.text,
-                  }}
-                >
-                  Notificaciones
-                </span>
-                <span
-                  style={{
-                    fontFamily: "'Inter',sans-serif",
-                    fontSize: 11,
-                    color: C.textFaint,
-                  }}
-                >
-                  {notifs.length} alertas
-                </span>
-              </div>
-              <div style={{ maxHeight: 340, overflowY: "auto" }}>
-                {notifs.map((n, i) => {
-                  const nc = notifColors[n.type] ?? {
-                    dot: C.textMuted,
-                    bg: C.bg,
-                  }
-                  return (
-                    <div
-                      key={n.id}
-                      style={{
-                        padding: "11px 16px",
-                        borderBottom:
-                          i < notifs.length - 1
-                            ? `1px solid ${C.borderLight}`
-                            : "none",
-                        background: n.read ? "transparent" : nc.bg + "55",
-                        display: "flex",
-                        gap: 11,
-                        alignItems: "flex-start",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 9,
-                          height: 9,
-                          borderRadius: "50%",
-                          background: nc.dot,
-                          flexShrink: 0,
-                          marginTop: 5,
-                        }}
-                      />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontFamily: "'Outfit',sans-serif",
-                            fontSize: 13,
-                            fontWeight: n.read ? 500 : 700,
-                            color: C.text,
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          {n.title}
-                        </div>
-                        <div
-                          style={{
-                            fontFamily: "'Inter',sans-serif",
-                            fontSize: 12,
-                            color: C.textMuted,
-                            marginTop: 2,
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          {n.desc}
-                        </div>
-                        <div
-                          style={{
-                            fontFamily: "'Inter',sans-serif",
-                            fontSize: 11,
-                            color: C.textFaint,
-                            marginTop: 4,
-                          }}
-                        >
-                          {n.time}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        <NotificationBell />
         <div ref={menuRef} style={{ position: "relative" }}>
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
