@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { cambiarEstadoUnidad, construirQuery, darDeBajaUnidad, listarEquipamiento, ponerEnMantenimiento } from "./inventoryApi"
+import { construirQuery, darDeBajaUnidad, listarEquipamiento, ponerEnMantenimiento, rehabilitarUnidad } from "./inventoryApi"
 
 describe("construirQuery", () => {
   it("omite filtros vacíos o en false", () => {
@@ -31,22 +31,15 @@ describe("llamadas a la API", () => {
     return { url, init }
   }
 
-  it("lista el catálogo en /api/v1/inventory/equipamiento con los filtros", async () => {
+  it("lista el catálogo con los filtros, y sin filtros no agrega signo de pregunta", async () => {
     const m = simular()
     await listarEquipamiento({ q: "sony", categoria: "cameras" })
-    const { url } = ultima(m)
-    expect(url).toContain("/api/v1/inventory/equipamiento?")
-    expect(url).toContain("q=sony")
-    expect(url).toContain("categoria=cameras")
-  })
-
-  it("sin filtros no agrega signo de pregunta", async () => {
-    const m = simular()
+    expect(ultima(m).url).toMatch(/\/api\/v1\/inventory\/equipamiento\?q=sony&categoria=cameras$/)
     await listarEquipamiento()
-    expect(ultima(m).url.endsWith("/api/v1/inventory/equipamiento")).toBe(true)
+    expect(ultima(m).url).toMatch(/\/api\/v1\/inventory\/equipamiento$/)
   })
 
-  it("mantenimiento y baja envían PATCH con el estado correcto; nunca 'prestado'", async () => {
+  it("mantenimiento, baja y rehabilitación envían PATCH con el estado correcto; nunca 'prestado'", async () => {
     const m = simular()
     await ponerEnMantenimiento(4)
     expect(ultima(m).init.method).toBe("PATCH")
@@ -54,7 +47,7 @@ describe("llamadas a la API", () => {
     expect(JSON.parse(ultima(m).init.body as string)).toEqual({ estado: "mantenimiento" })
     await darDeBajaUnidad(4)
     expect(JSON.parse(ultima(m).init.body as string)).toEqual({ estado: "baja" })
-    await cambiarEstadoUnidad(4, "disponible")
+    await rehabilitarUnidad(4)
     expect(JSON.parse(ultima(m).init.body as string)).toEqual({ estado: "disponible" })
   })
 })

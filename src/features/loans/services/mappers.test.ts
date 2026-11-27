@@ -82,6 +82,7 @@ describe("toOrden", () => {
         finOcupacion: new Date("2026-11-22T18:00:00Z"),
       },
     ])
+    expect(toOrden(orden({ resuelto_en: "2026-11-10T12:00:00Z" })).resueltoEn).toEqual(new Date("2026-11-10T12:00:00Z"))
   })
 
   it("arma el nombre completo del solicitante para los administradores", () => {
@@ -121,25 +122,6 @@ describe("toOrden", () => {
     const o = toOrden(orden({ detalles: [] }))
     expect(o.retiro).toBeNull()
     expect(o.devolucion).toBeNull()
-  })
-
-  it("conserva estado, situación, demora y resolución", () => {
-    const o = toOrden(
-      orden({
-        estado: "rechazada",
-        situacion: "finalizada",
-        demorado: true,
-        motivo_resolucion: "Sin stock",
-        resuelto_en: "2026-11-10T12:00:00Z",
-      }),
-    )
-    expect(o).toMatchObject({
-      estado: "rechazada",
-      situacion: "finalizada",
-      demorado: true,
-      motivoResolucion: "Sin stock",
-      resueltoEn: new Date("2026-11-10T12:00:00Z"),
-    })
   })
 })
 

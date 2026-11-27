@@ -9,13 +9,21 @@ describe("roles", () => {
     expect(uiRole("DOCENTE")).toBe("teacher")
     expect(uiRole("ADMIN_LOCAL")).toBe("admin")
     expect(uiRole("SUPERADMIN")).toBe("admin")
-    expect(esAdmin("DOCENTE")).toBe(false)
     expect(iniciales("lucía", "pérez")).toBe("LP")
+  })
+
+  it("sólo SUPERADMIN y ADMIN_LOCAL son administradores (pantallas SOLO_ADMIN)", () => {
+    expect(esAdmin("SUPERADMIN")).toBe(true)
+    expect(esAdmin("ADMIN_LOCAL")).toBe(true)
+    expect(esAdmin("DOCENTE")).toBe(false)
+    expect(esAdmin("ESTUDIANTE")).toBe(false)
   })
 
   it("replica la política de contraseña del backend (RN-03)", () => {
     expect(errorPassword("abcdefgh")).not.toBeNull()
     expect(errorPassword("1234567")).not.toBeNull()
+    expect(errorPassword("12345678")).toBe("Debe contener al menos una letra y un número.")
+    expect(errorPassword("a1".repeat(65))).toBe("Máximo 128 caracteres.")
     expect(errorPassword("ana2026@x.com", "Ana2026@x.com")).not.toBeNull()
     expect(errorPassword("Camara2026!")).toBeNull()
     expect(errorPassword("Cámara2026")).toBeNull()

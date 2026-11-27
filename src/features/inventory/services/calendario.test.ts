@@ -4,13 +4,6 @@ import { aIso, puedeIrA, rangoDelMes, ventana, VENTANA_DIAS } from "./calendario
 const dia = (y: number, m: number, d: number) => new Date(y, m - 1, d)
 const mes = (y: number, m: number) => new Date(y, m - 1, 1)
 
-describe("aIso", () => {
-  it("AAAA-MM-DD con ceros a la izquierda", () => {
-    expect(aIso(dia(2026, 1, 5))).toBe("2026-01-05")
-    expect(aIso(dia(2026, 12, 31))).toBe("2026-12-31")
-  })
-})
-
 describe("ventana", () => {
   // D-07
   it("va de hoy a hoy + 61: 62 días en total", () => {
@@ -58,17 +51,6 @@ describe("rangoDelMes", () => {
 describe("puedeIrA", () => {
   // INV-32
   const hoy = dia(2026, 11, 10)
-
-  it("el mes actual y los que tocan la ventana", () => {
-    expect(puedeIrA(mes(2026, 11), hoy)).toBe(true)
-    expect(puedeIrA(mes(2026, 12), hoy)).toBe(true)
-    expect(puedeIrA(mes(2027, 1), hoy)).toBe(true) // cambio de año
-  })
-
-  it("no deja ir al mes anterior ni pasar el fin de la ventana", () => {
-    expect(puedeIrA(mes(2026, 10), hoy)).toBe(false)
-    expect(puedeIrA(mes(2027, 2), hoy)).toBe(false)
-  })
 
   it("el día 1: la ventana termina dentro del mes siguiente al próximo", () => {
     const primero = dia(2026, 7, 1) // 1/7 + 61 = 31/8

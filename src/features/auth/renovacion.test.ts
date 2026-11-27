@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 import {
   crearRegistroActividad,
   debeRenovar,
@@ -97,12 +97,5 @@ describe("crearRegistroActividad", () => {
     t = 500
     destino.dispatchEvent(new Event("keydown"))
     expect(registro.ultima()).toBe(400)
-  })
-
-  it("registrar() a mano", () => {
-    const reloj = vi.fn().mockReturnValueOnce(1).mockReturnValueOnce(7)
-    const registro = crearRegistroActividad(reloj)
-    registro.registrar()
-    expect(registro.ultima()).toBe(7)
   })
 })

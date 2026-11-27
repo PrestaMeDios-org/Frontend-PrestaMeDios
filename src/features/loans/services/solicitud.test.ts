@@ -215,11 +215,9 @@ describe("mensajeDeErrorSolicitud", () => {
 })
 
 describe("esFinDeSemana", () => {
-  it("marca sábado y domingo", () => {
+  it("marca sábado y domingo; no los días de semana ni una fecha vacía", () => {
     expect(esFinDeSemana("2026-11-14")).toBe(true) // sábado
     expect(esFinDeSemana("2026-11-15")).toBe(true) // domingo
-  })
-  it("no marca días de semana ni una fecha vacía", () => {
     expect(esFinDeSemana("2026-11-13")).toBe(false) // viernes
     expect(esFinDeSemana("2026-11-16")).toBe(false) // lunes
     expect(esFinDeSemana("")).toBe(false)

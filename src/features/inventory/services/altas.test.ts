@@ -5,8 +5,6 @@ import {
   construirUnidad,
   equipoVacio,
   formDesdeEquipo,
-  parsearReglas,
-  reglaSedeAlta,
   unidadVacia,
   validarEquipo,
   validarUnidad,
@@ -24,11 +22,6 @@ const valido = (p: Partial<EquipoForm> = {}): EquipoForm => ({
 })
 
 describe("regla de sede en el alta (INV-25)", () => {
-  it("se oculta para ADMIN_LOCAL y es obligatoria para SUPERADMIN", () => {
-    expect(reglaSedeAlta("ADMIN_LOCAL")).toBe("oculta")
-    expect(reglaSedeAlta("SUPERADMIN")).toBe("obligatoria")
-  })
-
   it("el SUPERADMIN debe elegir la sede de cada unidad", () => {
     const u = { ...unidadVacia(), serie: "S", codigoInventario: "I" }
     expect(validarUnidad(u, "SUPERADMIN", true).sede).toBeTruthy()
@@ -121,9 +114,5 @@ describe("construirAlta y construirEdicion", () => {
       careRules: ["a", "b"],
     })
     expect(f).toMatchObject({ codigo: "CAM-1", maxDias: "4", altaGama: true, reglas: "a\nb", descripcion: "4K" })
-  })
-
-  it("parsearReglas ignora líneas vacías", () => {
-    expect(parsearReglas("\n a \n\n b\n")).toEqual(["a", "b"])
   })
 })

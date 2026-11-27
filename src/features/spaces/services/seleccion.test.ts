@@ -28,9 +28,6 @@ describe("agruparCorridas", () => {
       { inicio: "09:00", fin: "11:00", turnos: ["09:00", "10:00"] },
       { inicio: "13:00", fin: "15:00", turnos: ["13:00", "14:00"] },
     ])
-  })
-
-  it("sin horarios no hay reservas", () => {
     expect(agruparCorridas([])).toEqual([])
   })
 })
