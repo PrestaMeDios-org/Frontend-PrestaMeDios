@@ -5,12 +5,11 @@ import { useEffect, useState } from "react"
 import { useC } from "../../theme"
 import { Ico } from "../ui/icons"
 import type { RolUsuario } from "../../features/auth/types"
-import { MANUAL_POR_ROL, NOTA_MANUAL, vistaActiva } from "./manualDeUso"
+import { MANUAL_POR_ROL, vistaActiva } from "./manualDeUso"
 
 export function ManualDeUsoModal({ rol, onClose }: { rol: RolUsuario; onClose: () => void }) {
   const C = useC()
   const seccion = MANUAL_POR_ROL[rol]
-  const { acento, fondo } = seccion.color(C)
 
   useEffect(() => {
     const alTeclear = (e: KeyboardEvent) => e.key === "Escape" && onClose()
@@ -94,11 +93,11 @@ export function ManualDeUsoModal({ rol, onClose }: { rol: RolUsuario; onClose: (
         </div>
 
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* Recuadro del rol */}
+          {/* Recuadro del rol: misma paleta para todos los perfiles (neutro + bordó de la app). */}
           <section
             style={{
-              background: fondo,
-              border: `1px solid ${acento}33`,
+              background: C.bg,
+              border: `1px solid ${C.border}`,
               borderRadius: 14,
               padding: "18px 20px",
             }}
@@ -109,13 +108,13 @@ export function ManualDeUsoModal({ rol, onClose }: { rol: RolUsuario; onClose: (
                 fontFamily: "'Outfit',sans-serif",
                 fontSize: 15,
                 fontWeight: 700,
-                color: acento,
+                color: C.text,
               }}
             >
               {seccion.titulo}
             </h3>
-            <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 9 }}>
-              {seccion.tareas.map((t, i) => (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 9 }}>
+              {seccion.tareas.map((t) => (
                 <li
                   key={t.texto}
                   title={`Requisito: ${t.requisito}`}
@@ -123,22 +122,8 @@ export function ManualDeUsoModal({ rol, onClose }: { rol: RolUsuario; onClose: (
                 >
                   <span
                     aria-hidden="true"
-                    style={{
-                      width: 22,
-                      height: 22,
-                      flexShrink: 0,
-                      borderRadius: 6,
-                      background: acento,
-                      color: "white",
-                      fontSize: 11.5,
-                      fontWeight: 700,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {i + 1}
-                  </span>
+                    style={{ width: 6, height: 6, flexShrink: 0, borderRadius: "50%", background: C.crimson }}
+                  />
                   <span style={{ opacity: t.proximamente ? 0.7 : 1 }}>{t.texto}</span>
                   {t.proximamente && (
                     <span
@@ -159,31 +144,8 @@ export function ManualDeUsoModal({ rol, onClose }: { rol: RolUsuario; onClose: (
                   )}
                 </li>
               ))}
-            </ol>
+            </ul>
           </section>
-
-          {/* Nota (D-04) */}
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "flex-start",
-              background: C.bg,
-              border: `1px solid ${C.border}`,
-              borderRadius: 12,
-              padding: "12px 14px",
-              fontSize: 12.5,
-              lineHeight: 1.5,
-              color: C.textMuted,
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ flexShrink: 0, marginTop: 1 }}>
-              <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3" />
-              <path d="M8 7.2V11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-              <circle cx="8" cy="5" r="0.8" fill="currentColor" />
-            </svg>
-            <span>{NOTA_MANUAL}</span>
-          </div>
 
           <button
             type="button"
