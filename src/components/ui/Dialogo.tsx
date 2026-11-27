@@ -42,6 +42,10 @@ export function DialogoProvider({ children }: { children: ReactNode }) {
   // El pedido abierto, también en un ref: si llega otro antes de cerrarlo, el anterior se
   // resuelve como cancelado en vez de dejar su `await` colgado para siempre.
   const abierto = useRef<Pedido | null>(null)
+  // Un número por pedido, como `key` de <Ventana>: si un pedido reemplaza a otro, la ventana
+  // se vuelve a montar y no hereda el texto escrito en el anterior.
+  const contador = useRef(0)
+  const [clave, setClave] = useState(0)
   const resolver = (p: Pedido, valor: boolean | string | null) => {
     if (p.tipo === "confirmar") p.resolver(valor === true)
     else p.resolver(typeof valor === "string" ? valor : null)
@@ -49,6 +53,8 @@ export function DialogoProvider({ children }: { children: ReactNode }) {
   const abrir = useCallback((nuevo: Pedido) => {
     if (abierto.current) resolver(abierto.current, null)
     abierto.current = nuevo
+    contador.current += 1
+    setClave(contador.current)
     setPedido(nuevo)
   }, [])
   const confirmar = useCallback(
@@ -68,7 +74,7 @@ export function DialogoProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ confirmar, pedirTexto }}>
       {children}
-      {pedido && <Ventana pedido={pedido} onCerrar={cerrar} />}
+      {pedido && <Ventana key={clave} pedido={pedido} onCerrar={cerrar} />}
     </Ctx.Provider>
   )
 }

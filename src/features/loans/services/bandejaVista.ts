@@ -78,8 +78,8 @@ export function resumenBandeja(
   }
 }
 
-/** 100 al límite → "100+": la cifra real puede ser mayor. */
-export const cifra = (n: number, alLimite: boolean) => `${n}${alLimite ? "+" : ""}`
+/** 100 al límite → "100+": la cifra real puede ser mayor. Un 0 se muestra sin "+" (no hay "al menos 0"). */
+export const cifra = (n: number, alLimite: boolean) => `${n}${alLimite && n > 0 ? "+" : ""}`
 
 /** "Joaquín Prueba" → "JP". */
 export function inicialesDe(nombre: string): string {

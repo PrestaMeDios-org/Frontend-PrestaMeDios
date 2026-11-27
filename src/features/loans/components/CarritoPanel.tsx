@@ -4,6 +4,7 @@ import { Button } from "../../../components/ui/Button"
 import { Modal } from "../../../components/ui/Modal"
 import { useCarrito } from "../CarritoContext"
 import { MAX_LINEAS } from "../services/carrito"
+import { ICONO, Icono } from "./IconosLinea"
 
 interface Props {
   onClose: () => void
@@ -119,8 +120,12 @@ export function CarritoPanel({ onClose, onContinuar }: Props) {
                   color: C.occupied,
                   cursor: "pointer",
                   ...tenue,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
                 }}
               >
+                <Icono d={ICONO.quitar} size={12} />
                 Quitar
               </button>
             </li>
@@ -129,20 +134,26 @@ export function CarritoPanel({ onClose, onContinuar }: Props) {
       )}
 
       {carrito.items.length > 0 && (
-        <div style={{ display: "grid", gap: 4 }}>
-          <span style={texto}>
+        // SPEC-10: un ícono por aviso (unidades, aval de alta gama y disponibilidad).
+        <div style={{ display: "grid", gap: 5 }}>
+          <span style={{ ...texto, display: "flex", alignItems: "center", gap: 7 }}>
+            <span style={{ display: "inline-flex", color: C.textFaint }}>
+              <Icono d={ICONO.equipamiento} size={14} />
+            </span>
             {`${carrito.total} ${carrito.total === 1 ? "unidad" : "unidades"}`}
             {` (máximo ${MAX_LINEAS} por solicitud)`}
           </span>
           {carrito.requiereAval && (
-            <span style={{ ...tenue, color: C.premium }}>
-              Hay equipos de alta gama: al solicitar vas a tener que adjuntar el
-              aval en PDF.
+            <span style={{ ...tenue, color: C.premium, display: "flex", alignItems: "center", gap: 7 }}>
+              <Icono d={ICONO.documento} size={14} />
+              Hay equipos de alta gama: al solicitar vas a tener que adjuntar el aval en PDF.
             </span>
           )}
-          <span style={tenue}>
-            La disponibilidad se confirma con las fechas que elijas en la
-            solicitud.
+          <span style={{ ...tenue, display: "flex", alignItems: "center", gap: 7 }}>
+            <span style={{ display: "inline-flex", color: C.textFaint }}>
+              <Icono d={ICONO.calendario} size={14} />
+            </span>
+            La disponibilidad se confirma con las fechas que elijas en la solicitud.
           </span>
         </div>
       )}

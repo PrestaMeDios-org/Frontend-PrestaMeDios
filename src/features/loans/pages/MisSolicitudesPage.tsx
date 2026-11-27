@@ -4,7 +4,9 @@ import { Alert } from "../../../components/ui/Form"
 import { Ico } from "../../../components/ui/icons"
 import { mensajeDeError } from "../../../lib/api"
 import { useC } from "../../../theme"
-import { listarEquipamiento } from "../../inventory/services/inventoryApi"
+import { AltaGamaBadge } from "../../inventory/components/AltaGamaBadge"
+import { DIA_CORTO, HORA_CORTA, ICONO, Icono } from "../components/IconosLinea"
+import { listarCategorias, listarEquipamiento } from "../../inventory/services/inventoryApi"
 import { fechaCorta, useMisReservas } from "../../spaces/components/MisReservas"
 import { cancelarOrden, listarMisOrdenes } from "../services/loansApi"
 import { ESTADO_ORDEN_LABEL, fechaLab, resumenDeLineas } from "../services/formato"
@@ -21,6 +23,15 @@ import { useConfirmar } from "../../../components/ui/Dialogo"
 
 type Pestana = "equipos" | "espacios"
 
+/** Datos del catálogo que muestra el detalle de cada línea (SPEC-10). */
+interface DatoEquipo {
+  nombre: string
+  altaGama: boolean
+  codigo: string
+  categoria: { nombre: string; color: string | null } | null
+}
+
+
 /**
  * "Mis solicitudes" (SPEC-05 F1.5, USR-06): las órdenes propias, de la más nueva a la más
  * vieja, con su estado. Una orden pendiente se puede cancelar (CU-L03, F2.4).
@@ -30,7 +41,7 @@ type Pestana = "equipos" | "espacios"
 export function MisSolicitudesPage() {
   const C = useC()
   const [ordenes, setOrdenes] = useState<Orden[] | null>(null)
-  const [nombres, setNombres] = useState<Map<number, string>>(new Map())
+  const [equipos, setEquipos] = useState<Map<number, DatoEquipo>>(new Map())
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [cancelando, setCancelando] = useState<number | null>(null)
@@ -52,8 +63,18 @@ export function MisSolicitudesPage() {
     const control = new AbortController()
     void cargar(control.signal)
     // Los nombres salen del catálogo; si falla, se muestra "Equipo #id".
-    listarEquipamiento({}, control.signal)
-      .then((equipos) => setNombres(new Map(equipos.map((e) => [e.id, e.nombre]))))
+    Promise.all([listarEquipamiento({}, control.signal), listarCategorias(control.signal).catch(() => [])])
+      .then(([lista, categorias]) => {
+        const cats = new Map(categorias.map((c) => [c.id, { nombre: c.nombre, color: c.color }]))
+        setEquipos(
+          new Map(
+            lista.map((e) => [
+              e.id,
+              { nombre: e.nombre, altaGama: !!e.alta_gama, codigo: e.codigo, categoria: cats.get(e.categoria_id) ?? null },
+            ]),
+          ),
+        )
+      })
       .catch(() => {})
     return () => control.abort()
   }, [cargar])
@@ -93,6 +114,102 @@ export function MisSolicitudesPage() {
   const texto = { fontFamily: "'Inter',sans-serif", fontSize: 13, color: C.text } as const
   const tenue = { ...texto, fontSize: 12, color: C.textMuted } as const
   const unaLinea: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
+  // SPEC-10: cabeceras con ícono y fecha arriba, hora abajo.
+  const encabezado: CSSProperties = { display: "inline-flex", alignItems: "center", gap: 6 }
+  const fechaHora = (fecha: Date) => (
+    <span style={{ display: "grid", gap: 2, lineHeight: 1.25 }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.text, fontWeight: 600 }}>
+        <span style={{ color: C.textFaint, display: "inline-flex" }}><Icono d={ICONO.calendario} size={13} /></span>
+        {DIA_CORTO.format(fecha)}
+      </span>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.textMuted }}>
+        <span style={{ color: C.textFaint, display: "inline-flex" }}><Icono d={ICONO.reloj} size={13} /></span>
+        {HORA_CORTA.format(fecha)}
+      </span>
+    </span>
+  )
+
+  // SPEC-10: misma presentación para una reserva de espacio (día arriba, horario abajo).
+  const diaYHorario = (dia: string, horario: string) => (
+    <span style={{ display: "grid", gap: 2, lineHeight: 1.25 }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.text, fontWeight: 600 }}>
+        <span style={{ color: C.textFaint, display: "inline-flex" }}><Icono d={ICONO.calendario} size={13} /></span>
+        {dia}
+      </span>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.textMuted }}>
+        <span style={{ color: C.textFaint, display: "inline-flex" }}><Icono d={ICONO.reloj} size={13} /></span>
+        {horario}
+      </span>
+    </span>
+  )
+
+  const nombres = new Map([...equipos].map(([id, e]) => [id, e.nombre]))
+
+  // SPEC-10: detalle de una solicitud, "panel suave" (elegido el 2026-11-26): un bloque claro con
+  // una fila por equipo, la cantidad a la izquierda y la categoría y el tipo a la derecha.
+  const tipoEquipo = (dato: DatoEquipo | undefined) =>
+    dato?.altaGama ? (
+      <AltaGamaBadge />
+    ) : dato ? (
+      <span style={{ ...tenue, fontSize: 11.5, color: C.textFaint, flexShrink: 0 }}>Común</span>
+    ) : null
+  const puntoCategoria = (dato: DatoEquipo | undefined) =>
+    dato?.categoria && (
+      <span style={{ ...tenue, fontSize: 11.5, display: "inline-flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+        <span aria-hidden style={{ width: 7, height: 7, borderRadius: 99, background: dato.categoria.color ?? C.textFaint }} />
+        {dato.categoria.nombre}
+      </span>
+    )
+  const pieDetalle = (orden: Orden, grupos: ReturnType<typeof resumenDeLineas>) => {
+    const total = grupos.reduce((n, g) => n + g.cantidad, 0)
+    return (
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
+        <span style={{ ...tenue, display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <Icono d={ICONO.pedida} size={13} />
+          Pedida el {fechaLab(orden.fechaSolicitud)}
+        </span>
+        <span style={tenue}>
+          {total} {total === 1 ? "equipo" : "equipos"}
+        </span>
+        {orden.motivoResolucion && (
+          <span style={{ ...tenue, display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Icono d={ICONO.motivo} size={13} />
+            Motivo: {orden.motivoResolucion}
+          </span>
+        )}
+      </div>
+    )
+  }
+
+  const detalleDeOrden = (orden: Orden, grupos: ReturnType<typeof resumenDeLineas>) => {
+    const filas = grupos.map((g) => ({ g, dato: equipos.get(g.equipamientoId) }))
+
+    return (
+      <div style={{ display: "grid", gap: 10 }}>
+        <div style={{ background: C.card, borderRadius: 12, padding: "4px 14px", boxShadow: `0 1px 2px ${C.border}` }}>
+          {filas.map(({ g, dato }, k) => (
+            <div
+              key={g.equipamientoId}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 0",
+                borderTop: k ? `1px solid ${C.borderLight}` : "none",
+                minWidth: 0,
+              }}
+            >
+              <span style={{ ...texto, fontWeight: 700, minWidth: 26, color: C.crimson }}>{g.cantidad}×</span>
+              <span style={{ ...texto, ...unaLinea, fontWeight: 600, flex: 1, minWidth: 0 }}>{g.nombre}</span>
+              {puntoCategoria(dato)}
+              <span style={{ minWidth: 84, display: "flex", justifyContent: "flex-end" }}>{tipoEquipo(dato)}</span>
+            </div>
+          ))}
+        </div>
+        {pieDetalle(orden, grupos)}
+      </div>
+    )
+  }
 
   // Conteos y filtros de cada pestaña.
   const claveOrden = (o: Orden) => o.estado
@@ -115,7 +232,7 @@ export function MisSolicitudesPage() {
       return sig
     })
 
-  const tab = (clave: Pestana, etiqueta: string, n: number | undefined) => {
+  const tab = (clave: Pestana, etiqueta: string, n: number | undefined, icono?: ReactNode) => {
     const activa = pestana === clave
     return (
       <button
@@ -138,6 +255,7 @@ export function MisSolicitudesPage() {
           cursor: "pointer",
         }}
       >
+        {icono && <Icono d={icono} size={15} />}
         {etiqueta}
         {n !== undefined && (
           <span
@@ -219,7 +337,8 @@ export function MisSolicitudesPage() {
     abierta?: boolean
     children?: ReactNode
   }) => (
-    <div style={{ borderTop: `1px solid ${C.borderLight}` }}>
+    // SPEC-10: separador más marcado entre solicitudes, para ver dónde empieza y termina cada una.
+    <div style={{ borderTop: `1px solid ${C.textMuted}55` }}>
       <div
         onClick={onClick}
         style={{
@@ -249,12 +368,14 @@ export function MisSolicitudesPage() {
           <div style={{ ...texto, ...unaLinea, fontFamily: "'Outfit',sans-serif", fontSize: 14, fontWeight: 700 }}>{principal}</div>
           {secundario && <div style={{ ...tenue, ...unaLinea, marginTop: 1 }}>{secundario}</div>}
         </div>
-        <div style={{ ...texto, ...unaLinea, fontSize: 12.5 }}>{fecha}</div>
+        <div style={{ ...texto, fontSize: 12.5, minWidth: 0 }}>{fecha}</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{estado}</div>
         <div style={{ display: "flex", justifyContent: "flex-end" }}>{accion}</div>
       </div>
       {abierta && children && (
-        <div style={{ background: C.surface, padding: "0 16px 12px 52px", display: "grid", gap: 4 }}>{children}</div>
+        <div style={{ background: C.surface, padding: "2px 16px 14px 52px" }}>
+          <div style={{ display: "grid", gap: 4, maxWidth: 720 }}>{children}</div>
+        </div>
       )}
     </div>
   )
@@ -267,8 +388,8 @@ export function MisSolicitudesPage() {
   return (
     <div style={{ padding: "24px 28px", flex: 1, overflowY: "auto", display: "grid", gap: 14, alignContent: "start" }}>
       <div role="tablist" style={{ display: "flex", gap: 4, borderBottom: `1px solid ${C.border}` }}>
-        {tab("equipos", "Equipamiento", ordenes?.length)}
-        {tab("espacios", "Espacios", reservas?.length)}
+        {tab("equipos", "Equipamiento", ordenes?.length, ICONO.equipamiento)}
+        {tab("espacios", "Espacios", reservas?.length, ICONO.espacio)}
       </div>
 
       <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
@@ -322,9 +443,31 @@ export function MisSolicitudesPage() {
             }}
           >
             <span />
-            <span>{pestana === "equipos" ? "Solicitud" : "Espacio"}</span>
-            <span>{pestana === "equipos" ? "Retiro → Devolución" : "Fecha y horario"}</span>
-            <span>Estado</span>
+            <span style={encabezado}>
+              <Icono d={pestana === "equipos" ? ICONO.solicitud : ICONO.espacio} />
+              {pestana === "equipos" ? "Solicitud" : "Espacio"}
+            </span>
+            {pestana === "equipos" ? (
+              <span style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <span style={encabezado}>
+                  <Icono d={ICONO.retiro} />
+                  Retiro
+                </span>
+                <span style={encabezado}>
+                  <Icono d={ICONO.devolucion} />
+                  Devolución
+                </span>
+              </span>
+            ) : (
+              <span style={encabezado}>
+                <Icono d={ICONO.fechaHorario} />
+                Fecha y horario
+              </span>
+            )}
+            <span style={encabezado}>
+              <Icono d={ICONO.estado} />
+              Estado
+            </span>
             <span />
           </div>
 
@@ -335,7 +478,6 @@ export function MisSolicitudesPage() {
                 grupos.length === 0
                   ? "Sin equipos"
                   : `${grupos[0]!.cantidad} × ${grupos[0]!.nombre}${grupos.length > 1 ? ` + ${grupos.length - 1} más` : ""}`
-              const conDetalle = grupos.length > 1 || !!orden.motivoResolucion
               const abierta = abiertas.has(orden.id)
               return (
                 <Fila
@@ -344,9 +486,10 @@ export function MisSolicitudesPage() {
                   secundario={resumen}
                   fecha={
                     orden.retiro && orden.devolucion ? (
-                      <>
-                        {fechaLab(orden.retiro)} <span style={{ color: C.textFaint }}>→</span> {fechaLab(orden.devolucion)}
-                      </>
+                      <span style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                        {fechaHora(orden.retiro)}
+                        {fechaHora(orden.devolucion)}
+                      </span>
                     ) : (
                       <span style={{ color: C.textFaint }}>—</span>
                     )
@@ -361,16 +504,10 @@ export function MisSolicitudesPage() {
                     orden.estado === "pendiente" && botonCancelar(cancelando === orden.id, () => void cancelar(orden))
                   }
                   apagada={orden.estado === "cancelada" || orden.estado === "rechazada"}
-                  onClick={conDetalle ? () => alternar(orden.id) : undefined}
+                  onClick={() => alternar(orden.id)}
                   abierta={abierta}
                 >
-                  {grupos.map((g) => (
-                    <span key={g.equipamientoId} style={texto}>
-                      {g.cantidad} × {g.nombre}
-                    </span>
-                  ))}
-                  {orden.motivoResolucion && <span style={tenue}>Motivo: {orden.motivoResolucion}</span>}
-                  <span style={tenue}>Pedida el {fechaLab(orden.fechaSolicitud)}</span>
+                  {detalleDeOrden(orden, grupos)}
                 </Fila>
               )
             })}
@@ -397,7 +534,7 @@ export function MisSolicitudesPage() {
                   key={r.id}
                   principal={esp.nombre(r.idEspacio)}
                   secundario={r.motivo}
-                  fecha={`${fechaCorta(r.fecha)} · ${r.horaInicio}–${r.horaFin}`}
+                  fecha={diaYHorario(fechaCorta(r.fecha), `${r.horaInicio}–${r.horaFin}`)}
                   estado={<Badge label={etiqueta} {...color} />}
                   accion={
                     !iniciada &&

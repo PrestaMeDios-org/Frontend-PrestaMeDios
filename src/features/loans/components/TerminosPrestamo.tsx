@@ -1,17 +1,14 @@
 import { useEffect, useRef, useState } from "react"
 import { useC } from "../../../theme"
 import { PORTAL } from "../../notifications/services/portal"
+import { REGLAMENTO_USO } from "../../../lib/reglamento"
 
 /**
  * MOMENTÁNEO (SPEC-10 V-19): texto tomado del diseño de Figma, a reemplazar por los artículos
  * del Reglamento (Resolución CICSE N° 056/2023) cuando estén cargados en el sistema.
  */
-export const REGLAMENTO_USO = [
-  "Devolver el equipo en la fecha y horario acordados, en las mismas condiciones en que fue entregado.",
-  "Cuidar los lentes y accesorios ópticos: nunca limpiar con ropa ni superficies abrasivas.",
-  "Reportar de inmediato cualquier daño accidental al personal del laboratorio.",
-  "El préstamo es personal e intransferible — no ceder el equipo a terceros.",
-] as const
+// El texto vive en `lib/reglamento` (lo comparte la ficha del equipo); se re-exporta acá.
+export { REGLAMENTO_USO }
 
 /**
  * Casilla de Términos y Condiciones de la solicitud (PRE-03). El enlace muestra el reglamento

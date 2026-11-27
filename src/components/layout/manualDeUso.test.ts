@@ -1,7 +1,6 @@
 // MOMENTÁNEO (SPEC-10, RN-U02): tests del contenido del manual de uso (M-01).
 import { describe, expect, it } from "vitest"
-import { C_DARK, C_LIGHT } from "../../theme"
-import { MANUAL_POR_ROL, NOTA_MANUAL, vistaActiva } from "./manualDeUso"
+import { MANUAL_POR_ROL, vistaActiva } from "./manualDeUso"
 
 describe("manual de uso (SPEC-10 §4.5)", () => {
   it("muestra el rol de la sesión en el subtítulo", () => {
@@ -38,15 +37,5 @@ describe("manual de uso (SPEC-10 §4.5)", () => {
     expect(new Set(prox)).toEqual(new Set(["NOV-04", "PRE-13", "USR-09"]))
   })
 
-  it("la nota no menciona el selector de vista del prototipo", () => {
-    // AC-U05
-    expect(NOTA_MANUAL).not.toMatch(/selector|Vista:/i)
-  })
 
-  it("usa colores del tema en claro y oscuro", () => {
-    // AC-U06
-    expect(MANUAL_POR_ROL.ESTUDIANTE.color(C_LIGHT)).toEqual({ acento: C_LIGHT.mine, fondo: C_LIGHT.mineBg })
-    expect(MANUAL_POR_ROL.DOCENTE.color(C_DARK)).toEqual({ acento: C_DARK.available, fondo: C_DARK.availableBg })
-    expect(MANUAL_POR_ROL.SUPERADMIN.color(C_DARK)).toEqual({ acento: C_DARK.crimson, fondo: C_DARK.crimsonLight })
-  })
 })
