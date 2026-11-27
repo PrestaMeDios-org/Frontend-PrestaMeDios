@@ -49,3 +49,24 @@ export function agruparPorLocker(items: Equipment[]): GrupoLocker[] {
     .sort(([a], [b]) => (a ?? Infinity) - (b ?? Infinity))
     .map(([locker, entradas]) => ({ locker, entradas: entradas.sort(orden) }))
 }
+
+// ─── Unidades fuera de servicio (SPEC-04 §8.4, addendum v1.3.1) ──────────────
+
+const porCodigo = (a: Unidad, b: Unidad) =>
+  a.codigoInventario.localeCompare(b.codigoInventario, "es", { numeric: true })
+
+/**
+ * Separa las unidades en uso (`disponible`, `prestado`, `mantenimiento`) de las dadas de baja,
+ * que se muestran aparte y plegadas. Las de baja no se borran: conservan su historial (PRE-14).
+ */
+export function separarFueraDeServicio(unidades: Unidad[]): { enUso: Unidad[]; fueraDeServicio: Unidad[] } {
+  const enUso = unidades.filter((u) => u.estado !== "baja").sort(porCodigo)
+  const fueraDeServicio = unidades.filter((u) => u.estado === "baja").sort(porCodigo)
+  return { enUso, fueraDeServicio }
+}
+
+/** El equipo tuvo unidades pero todas están fuera de servicio (en la tabla: "Sin unidades en uso"). */
+export function sinUnidadesEnUso(equipo: Pick<Equipment, "quantity" | "unidades">): boolean {
+  const unidades = equipo.unidades ?? []
+  return equipo.quantity === 0 && unidades.length > 0 && unidades.every((u) => u.estado === "baja")
+}
