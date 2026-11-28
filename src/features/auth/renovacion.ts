@@ -3,6 +3,8 @@
 // `POST /auth/renovar` sólo si el usuario estuvo usando la aplicación. Sin actividad,
 // el token vence y se vuelve al login. El token sigue en `sessionStorage` (ADR-015).
 
+import { leerClaimsToken } from "./sesion"
+
 /** Cuánto antes del vencimiento se renueva, como máximo. */
 export const MARGEN_RENOVACION_MS = 5 * 60_000
 /** Actividad que cuenta para renovar: la de los últimos minutos. */
@@ -19,19 +21,11 @@ export interface TiemposToken {
 
 /** `iat` y `exp` del token, sin verificar la firma (eso lo hace el backend). */
 export function leerTiemposToken(token: string): TiemposToken | null {
-  const partes = token.split(".")
-  if (partes.length !== 3) return null
-  try {
-    const base64 = partes[1].replace(/-/g, "+").replace(/_/g, "/")
-    const relleno = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=")
-    const claims: unknown = JSON.parse(atob(relleno))
-    if (!claims || typeof claims !== "object") return null
-    const { iat, exp } = claims as { iat?: unknown; exp?: unknown }
-    if (typeof iat !== "number" || typeof exp !== "number" || exp <= iat) return null
-    return { emitido: iat * 1000, vence: exp * 1000 }
-  } catch {
-    return null
-  }
+  const claims = leerClaimsToken(token)
+  if (!claims) return null
+  const { iat, exp } = claims
+  if (typeof iat !== "number" || typeof exp !== "number" || exp <= iat) return null
+  return { emitido: iat * 1000, vence: exp * 1000 }
 }
 
 /**
