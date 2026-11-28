@@ -18,5 +18,7 @@ describe("tema de la tarjeta de comunicado (SPEC-10 V-10)", () => {
 
   it("un vencido vuelve a su color de alcance", () => {
     expect(temaDe({ ...base, venceEn: "2026-11-11T12:00:00-03:00", vencido: true }, ahora)).toBe("azul")
+    // `vencido` manda sobre la fecha (p. ej. un comunicado que el backend ya no considera vigente).
+    expect(temaDe({ ...base, venceEn: "2026-11-13T12:00:00-03:00", vencido: true }, ahora)).toBe("azul")
   })
 })

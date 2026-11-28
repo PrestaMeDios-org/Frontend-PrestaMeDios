@@ -59,11 +59,40 @@ describe("toEquipment (vista de administradores)", () => {
     expect(e.sede).toBeUndefined()
   })
 
-  it("respeta la baja lógica y los campos opcionales", () => {
-    const e = toEquipment({ ...dto, activo: false, imagen_url: "https://x/y.png", video_url: "https://v" })
-    expect(e.activo).toBe(false)
-    expect(e.image).toBe("https://x/y.png")
-    expect(e.videoUrl).toBe("https://v")
+  it("respeta el contrato con el backend campo por campo (incluida la baja lógica)", () => {
+    const e = toEquipment({
+      ...dto,
+      activo: false,
+      descripcion: "Full frame",
+      imagen_url: "https://x/y.png",
+      video_url: "https://v",
+      reglas_cuidado: ["No mojar"],
+      unidades: [unidad({ id: 1, locker: 5 })],
+    })
+    expect(e).toEqual({
+      id: 7,
+      name: "Cámara Sony",
+      category: "cameras",
+      available: true,
+      maintenance: false,
+      image: "https://x/y.png",
+      specs: "Full frame",
+      maxDays: 4,
+      code: "CAM-001",
+      brand: "Sony",
+      model: "A7",
+      quantity: 2,
+      available_count: 1,
+      altaGama: false,
+      esNotebook: false,
+      careRules: ["No mojar"],
+      videoUrl: "https://v",
+      activo: false,
+      sede: "Ushuaia",
+      locker: 5,
+      lockers: [5],
+      unidades: [{ id: 1, serie: "SN-1", codigoInventario: "CAM-S-01", sede: "Ushuaia", locker: 5, estado: "disponible" }],
+    })
   })
 })
 

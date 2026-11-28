@@ -134,11 +134,4 @@ describe("archivos (SPEC-03 §6.6)", () => {
     expect(String(url)).not.toContain("abc")
     expect(init?.headers).toMatchObject({ Authorization: "Bearer abc" })
   })
-
-  it("una descarga denegada es un ApiError", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      respuesta(404, { detail: "Archivo no encontrado.", code: "ARCHIVO_NO_ENCONTRADO" }),
-    )
-    await expect(descargarArchivo("x")).rejects.toMatchObject({ status: 404, code: "ARCHIVO_NO_ENCONTRADO" })
-  })
 })

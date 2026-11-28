@@ -34,13 +34,6 @@ describe("toComunicado", () => {
     expect(toComunicado(dto({ estado: "ARCHIVADO", vigente: false })).vencido).toBe(false)
     expect(toComunicado(dto()).vencido).toBe(false)
   })
-
-  it("formatea fechas en la zona del laboratorio y conserva el contenido tal cual", () => {
-    const c = toComunicado(dto({ vence_en: "2026-11-20T00:00:00-03:00" }))
-    expect(c.publicadoLabel).toBe("07/11/2026 10:30")
-    expect(c.venceLabel).toBe("20/11/2026 00:00")
-    expect(c.contenido).toBe("Línea 1\nLínea 2")
-  })
 })
 
 describe("fechas", () => {

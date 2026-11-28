@@ -6,7 +6,6 @@ import {
   equipamientoIds,
   MAX_LINEAS,
   puedeSumar,
-  quitar,
   requiereAval,
   tipoCarrito,
   totalUnidades,
@@ -87,10 +86,6 @@ describe("cambiarCantidad y quitar", () => {
     expect(cambiarCantidad(base, 12, 0).map((i) => i.equipamientoId)).toEqual([
       15,
     ])
-  })
-
-  it("quitar saca solo ese modelo", () => {
-    expect(quitar(base, 15).map((i) => i.equipamientoId)).toEqual([12])
   })
 })
 

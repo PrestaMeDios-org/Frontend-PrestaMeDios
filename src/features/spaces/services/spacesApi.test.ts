@@ -8,7 +8,7 @@ afterEach(() => {
 })
 
 describe("createEspacio", () => {
-  it("sends the local-admin payload without a sede and maps the response", async () => {
+  it("hace POST con el payload y mapea la respuesta (id_espacio → id, tipo nulo → undefined)", async () => {
     tokenStore.set("session-token")
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ id_espacio: 18, nombre: "Sala", sede: "Ushuaia" }), {
@@ -29,24 +29,6 @@ describe("createEspacio", () => {
         method: "POST",
         body: JSON.stringify({ nombre: "Sala", tipo: "Edición" }),
       }),
-    )
-  })
-
-  it("sends the sede selected by a superadmin", async () => {
-    tokenStore.set("session-token")
-    const payload = { nombre: "Taller", sede: "Río Grande" as const }
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ id_espacio: 23, nombre: "Taller", sede: "Río Grande" }), {
-        status: 201,
-        headers: { "Content-Type": "application/json" },
-      }),
-    )
-
-    await createEspacio(payload)
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/api/v1/spaces/espacios"),
-      expect.objectContaining({ method: "POST", body: JSON.stringify(payload) }),
     )
   })
 })

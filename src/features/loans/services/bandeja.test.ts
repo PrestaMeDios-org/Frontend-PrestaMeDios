@@ -43,8 +43,9 @@ const orden = (p: Partial<Orden> = {}): Orden => ({
 
 describe("retiroVencido", () => {
   const despues = instanteLab("2026-11-11", "10:01")
-  it("marca una pendiente cuyo retiro ya pasó", () => {
+  it("marca una pendiente cuyo retiro ya pasó o es ahora mismo", () => {
     expect(retiroVencido(orden(), despues)).toBe(true)
+    expect(retiroVencido(orden(), instanteLab("2026-11-11", "10:00"))).toBe(true)
   })
   it("no marca una pendiente con retiro futuro", () => {
     expect(retiroVencido(orden(), instanteLab("2026-11-11", "09:59"))).toBe(false)
